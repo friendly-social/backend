@@ -1,0 +1,54 @@
+package friendly.backend
+
+import friendly.backend.AppContext
+import friendly.backend.auth.auth
+import io.ktor.http.HttpStatusCode
+import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.application.Application
+import io.ktor.server.application.install
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
+import io.ktor.server.plugins.BadRequestException
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
+import io.ktor.server.routing.routing
+import kotlinx.serialization.SerializationException
+
+suspend fun main() {
+    val port = System.getenv("FRIENDLY_PORT")?.toInt() ?: 8080
+    val database = bootstrapDatabase()
+
+    val context = AppContext(database)
+
+    embeddedServer(Netty, port) {
+        installStatusPages()
+        installContentNegotiation()
+
+        routing {
+            auth(context)
+        }
+    }.start(wait = true)
+}
+
+private fun Application.installStatusPages() {
+    install(StatusPages) {
+        exception<BadRequestException> { call, badRequest ->
+            val message = when (val cause = badRequest.cause) {
+                is SerializationException -> cause.message
+                else -> badRequest.message
+            }
+            call.respondText(
+                text = "400: $message",
+                status = HttpStatusCode.BadRequest,
+            )
+        }
+    }
+}
+
+private fun Application.installContentNegotiation() {
+    install(ContentNegotiation) {
+        json()
+    }
+}
