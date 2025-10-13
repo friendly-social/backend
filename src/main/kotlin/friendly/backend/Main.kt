@@ -1,7 +1,6 @@
 package friendly.backend
 
 import friendly.backend.AppContext
-import friendly.backend.auth.auth
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -27,7 +26,7 @@ suspend fun main() {
         installContentNegotiation()
 
         routing {
-            auth(context)
+            authGenerate(context)
         }
     }.start(wait = true)
 }

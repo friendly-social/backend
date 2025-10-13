@@ -22,6 +22,7 @@ suspend fun createTables(db: R2dbcDatabase) {
     //     SchemaUtils.create(
     //         TokensStorage,
     //         UsersStorage,
+    //         InterestsStorage,
     //     )
     // }
 }
