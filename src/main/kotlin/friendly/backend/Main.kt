@@ -1,6 +1,5 @@
 package friendly.backend
 
-import friendly.backend.AppContext
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -19,14 +18,16 @@ suspend fun main() {
     val port = System.getenv("FRIENDLY_PORT")?.toInt() ?: 8080
     val database = bootstrapDatabase()
 
-    val context = AppContext(database)
-
     embeddedServer(Netty, port) {
         installStatusPages()
         installContentNegotiation()
 
         routing {
-            authGenerate(context)
+            val context = AppContext(
+                database = database,
+                routing = this,
+            )
+            AuthRouting.generateIn(context)
         }
     }.start(wait = true)
 }

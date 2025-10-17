@@ -1,7 +1,5 @@
 package friendly.backend
 
-import friendly.backend.Nickname
-import friendly.backend.UserId
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.r2dbc.batchInsert
 

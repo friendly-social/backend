@@ -5,6 +5,15 @@ plugins {
     application
 }
 
+kotlin {
+    compilerOptions {
+        extraWarnings = true
+        allWarningsAsErrors = true
+        progressiveMode = true
+        freeCompilerArgs.add("-Xconsistent-data-class-copy-visibility")
+    }
+}
+
 application {
     mainClass = "friendly.backend.MainKt"
 }

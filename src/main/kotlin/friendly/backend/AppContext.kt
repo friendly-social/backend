@@ -1,8 +1,21 @@
 package friendly.backend
 
+import io.ktor.server.routing.Routing
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 
 /**
  * Experimental Approach to have god-object for DI instead of Map
+ *
+ * It's a good thing to try to maximize the amount of pure functions that
+ * does not use this class. In fact, all the functions in the project must be
+ * pure or accept AppContext.
  */
-data class AppContext(val db: R2dbcDatabase)
+class AppContext(database: R2dbcDatabase? = null, routing: Routing? = null) {
+    private val _database = database
+    val database: R2dbcDatabase
+        get() = _database ?: error("Database is not configured.")
+
+    private val _routing = routing
+    val routing: Routing
+        get() = _routing ?: error("Routing is not configured.")
+}

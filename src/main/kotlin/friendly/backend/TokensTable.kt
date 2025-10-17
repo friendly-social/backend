@@ -1,7 +1,5 @@
 package friendly.backend
 
-import friendly.backend.Token
-import friendly.backend.UserId
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.r2dbc.insert
 
@@ -11,6 +9,7 @@ object TokensTable : Table("tokens") {
 
     override val primaryKey = PrimaryKey(tokenColumn, ownerIdColumn)
 
+    // TODO: this is impure function and it does not accept context
     suspend fun insert(token: Token, ownerId: UserId) {
         insert { statement ->
             statement[tokenColumn] = token.string

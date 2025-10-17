@@ -9,6 +9,7 @@ data class Token private constructor(val string: String) {
         val Alphabet =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.~"
 
+        // todo: make it a pure function
         fun random(): Token {
             val string = buildString {
                 repeat(Length) {

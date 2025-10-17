@@ -1,5 +1,7 @@
 package friendly.backend
 
+// import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
+// import org.jetbrains.exposed.v1.r2dbc.SchemaUtils
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 
 suspend fun bootstrapDatabase(): R2dbcDatabase {
@@ -17,12 +19,11 @@ suspend fun bootstrapDatabase(): R2dbcDatabase {
 }
 
 suspend fun createTables(db: R2dbcDatabase) {
-    // TODO: it's broken in the current version of exposed
     // suspendTransaction(db) {
     //     SchemaUtils.create(
-    //         TokensStorage,
-    //         UsersStorage,
-    //         InterestsStorage,
+    //         TokensTable,
+    //         UsersTable,
+    //         InterestsTable,
     //     )
     // }
 }
