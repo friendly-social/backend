@@ -16,14 +16,15 @@ object AuthRouting {
 
     @Serializable
     private data class GenerateResponse(
-        val userId: UserIdSerializable,
         val token: TokenSerializable,
+        val id: UserIdSerializable,
+        val accessHash: UserAccessHashSerializable,
     )
 
     fun generateIn(context: AppContext) {
         context.routing.post("/auth/generate") {
             val body = call.receive<GenerateBody>()
-            val result = TokenService.generateIn(
+            val result = TokensService.generateIn(
                 context = context,
                 nickname = body.nickname.typed(),
                 description = body.description.typed(),
@@ -33,6 +34,10 @@ object AuthRouting {
         }
     }
 
-    private fun TokenService.GenerateResult.toResponse(): GenerateResponse =
-        GenerateResponse(userId.serializable(), token.serializable())
+    private fun TokensService.GenerateResult.toResponse(): GenerateResponse =
+        GenerateResponse(
+            token = token.serializable(),
+            id = id.serializable(),
+            accessHash = accessHash.serializable(),
+        )
 }

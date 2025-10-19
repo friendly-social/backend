@@ -2,6 +2,7 @@ package friendly.backend
 
 import io.ktor.server.routing.Routing
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
+import kotlin.random.Random
 
 /**
  * Experimental Approach to have god-object for DI instead of Map
@@ -10,7 +11,11 @@ import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
  * does not use this class. In fact, all the functions in the project must be
  * pure or accept AppContext.
  */
-class AppContext(database: R2dbcDatabase? = null, routing: Routing? = null) {
+class AppContext(
+    database: R2dbcDatabase? = null,
+    routing: Routing? = null,
+    random: Random? = null,
+) {
     private val _database = database
     val database: R2dbcDatabase
         get() = _database ?: error("Database is not configured.")
@@ -18,4 +23,8 @@ class AppContext(database: R2dbcDatabase? = null, routing: Routing? = null) {
     private val _routing = routing
     val routing: Routing
         get() = _routing ?: error("Routing is not configured.")
+
+    private val _random = random
+    val random: Random
+        get() = _random ?: error("Random is not configured.")
 }

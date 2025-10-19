@@ -5,6 +5,7 @@ import org.jetbrains.exposed.v1.r2dbc.insert
 
 object UsersTable : Table("users") {
     private val idColumn = long("id").autoIncrement()
+    private val accessHash = varchar("access_hash", UserAccessHash.Length)
     private val nicknameColumn = varchar("nickname", Nickname.MaxLength)
 
     private val descriptionColumn =
@@ -13,6 +14,7 @@ object UsersTable : Table("users") {
     override val primaryKey = PrimaryKey(idColumn)
 
     suspend fun insert(
+        accessHash: UserAccessHash,
         nickname: Nickname,
         description: UserDescription,
     ): UserId {

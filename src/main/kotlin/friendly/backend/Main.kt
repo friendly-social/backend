@@ -13,6 +13,7 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import kotlinx.serialization.SerializationException
+import kotlin.random.Random
 
 suspend fun main() {
     val port = System.getenv("FRIENDLY_PORT")?.toInt() ?: 8080
@@ -26,6 +27,7 @@ suspend fun main() {
             val context = AppContext(
                 database = database,
                 routing = this,
+                random = Random,
             )
             AuthRouting.generateIn(context)
         }
