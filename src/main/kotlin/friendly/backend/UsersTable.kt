@@ -13,7 +13,7 @@ object UsersTable : Table("users") {
 
     override val primaryKey = PrimaryKey(idColumn)
 
-    suspend fun insert(
+    suspend fun impureInsert(
         accessHash: UserAccessHash,
         nickname: Nickname,
         description: UserDescription,

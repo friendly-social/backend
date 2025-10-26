@@ -21,10 +21,10 @@ object AuthRouting {
         val accessHash: UserAccessHashSerializable,
     )
 
-    fun generateIn(context: AppContext) {
+    fun impureGenerate(context: AppContext) {
         context.routing.post("/auth/generate") {
             val body = call.receive<GenerateBody>()
-            val result = TokensService.generateIn(
+            val result = TokensService.impureGenerate(
                 context = context,
                 nickname = body.nickname.typed(),
                 description = body.description.typed(),

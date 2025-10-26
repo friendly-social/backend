@@ -1,5 +1,7 @@
 package friendly.backend
 
+import kotlin.random.Random
+
 data class Token private constructor(val string: String) {
     fun serializable(): TokenSerializable = TokenSerializable(string)
 
@@ -9,11 +11,10 @@ data class Token private constructor(val string: String) {
         val Alphabet =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.~"
 
-        fun randomIn(context: AppContext): Token {
+        fun impureRandom(random: Random): Token {
             val string = buildString {
                 repeat(Length) {
-                    // We shouldn't use that pseudorandom LoL
-                    append(Alphabet.random(context.random))
+                    append(Alphabet.random(random))
                 }
             }
             return Token(string)

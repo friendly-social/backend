@@ -17,7 +17,7 @@ import kotlin.random.Random
 
 suspend fun main() {
     val port = System.getenv("FRIENDLY_PORT")?.toInt() ?: 8080
-    val database = bootstrapDatabase()
+    val database = impureBootstrapDatabase()
 
     embeddedServer(Netty, port) {
         installStatusPages()
@@ -29,7 +29,7 @@ suspend fun main() {
                 routing = this,
                 random = Random,
             )
-            AuthRouting.generateIn(context)
+            AuthRouting.impureGenerate(context)
         }
     }.start(wait = true)
 }

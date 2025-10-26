@@ -9,8 +9,7 @@ object TokensTable : Table("tokens") {
 
     override val primaryKey = PrimaryKey(tokenColumn, ownerIdColumn)
 
-    // TODO: this is impure function and it does not accept context
-    suspend fun insert(token: Token, ownerId: UserId) {
+    suspend fun impureInsert(token: Token, ownerId: UserId) {
         insert { statement ->
             statement[tokenColumn] = token.string
             statement[ownerIdColumn] = ownerId.long

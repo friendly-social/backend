@@ -1,5 +1,7 @@
 package friendly.backend
 
+import kotlin.random.Random
+
 data class UserAccessHash private constructor(val string: String) {
 
     fun serializable(): UserAccessHashSerializable =
@@ -11,12 +13,10 @@ data class UserAccessHash private constructor(val string: String) {
         val Alphabet =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.~"
 
-        // todo: make it a pure function
-        fun randomIn(context: AppContext): UserAccessHash {
+        fun impureRandom(random: Random): UserAccessHash {
             val string = buildString {
                 repeat(Length) {
-                    // We shouldn't use that pseudorandom LoL
-                    append(Alphabet.random(context.random))
+                    append(Alphabet.random(random))
                 }
             }
             return UserAccessHash(string)

@@ -9,7 +9,7 @@ object InterestsTable : Table("interests") {
 
     override val primaryKey = PrimaryKey(nameColumn, userIdColumn)
 
-    suspend fun insert(userId: UserId, interests: List<Interest>) {
+    suspend fun impureInsert(userId: UserId, interests: List<Interest>) {
         batchInsert(interests) { (name) ->
             this[userIdColumn] = userId.long
             this[nameColumn] = name

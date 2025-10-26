@@ -4,7 +4,7 @@ package friendly.backend
 // import org.jetbrains.exposed.v1.r2dbc.SchemaUtils
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 
-suspend fun bootstrapDatabase(): R2dbcDatabase {
+suspend fun impureBootstrapDatabase(): R2dbcDatabase {
     val url = System.getenv("FRIENDLY_DATABASE_URL")
         ?: error("Provide 'FRIENDLY_DATABASE_URL' env")
 
@@ -13,12 +13,12 @@ suspend fun bootstrapDatabase(): R2dbcDatabase {
         driver = "postgresql",
     )
 
-    createTables(db)
+    impureCreateTables(db)
 
     return db
 }
 
-suspend fun createTables(db: R2dbcDatabase) {
+suspend fun impureCreateTables(db: R2dbcDatabase) {
     // suspendTransaction(db) {
     //     SchemaUtils.create(
     //         TokensTable,

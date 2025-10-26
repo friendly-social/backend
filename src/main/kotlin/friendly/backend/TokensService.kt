@@ -1,24 +1,23 @@
 package friendly.backend
 
-import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 object TokensService {
-    suspend fun generateIn(
+    suspend fun impureGenerate(
         context: AppContext,
         nickname: Nickname,
         description: UserDescription,
         interests: List<Interest>,
     ): GenerateResult {
-        val token = Token.randomIn(context)
+        val token = Token.impureRandom(context.random)
         return suspendTransaction(context.database) {
-            val (id, accessHash) = UsersService.createIn(
+            val (id, accessHash) = UsersService.impureCreate(
                 context = context,
                 nickname = nickname,
                 description = description,
                 interests = interests,
             )
-            TokensTable.insert(token, id)
+            TokensTable.impureInsert(token, id)
             GenerateResult(token, id, accessHash)
         }
     }
