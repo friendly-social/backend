@@ -10,6 +10,7 @@ kotlin {
         extraWarnings = true
         allWarningsAsErrors = true
         progressiveMode = true
+        optIn.add("kotlin.time.ExperimentalTime")
         freeCompilerArgs.add("-Xconsistent-data-class-copy-visibility")
     }
 }
@@ -31,5 +32,7 @@ dependencies {
     implementation(libs.slf4j.simple)
     implementation(libs.exposed.core)
     implementation(libs.exposed.r2dbc)
+    implementation(libs.exposed.datetime)
+    implementation(libs.kotlinx.io.core)
     runtimeOnly(libs.postgres.r2dbc)
 }
