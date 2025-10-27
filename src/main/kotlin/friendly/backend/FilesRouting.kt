@@ -1,20 +1,18 @@
 package friendly.backend
 
-import java.nio.file.Paths
-import io.ktor.server.util.getValue
-import kotlinx.io.buffered
 import io.ktor.http.ContentDisposition
-import io.ktor.utils.io.asSource
-import kotlinx.coroutines.flow.toList
-import io.ktor.http.content.asFlow
-import io.ktor.http.content.PartData
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.routing.post
-import io.ktor.server.routing.get
+import io.ktor.http.content.PartData
+import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondPath
-import io.ktor.server.request.receiveMultipart
+import io.ktor.server.routing.get
+import io.ktor.server.routing.post
+import io.ktor.server.util.getValue
+import io.ktor.utils.io.asSource
+import kotlinx.io.buffered
 import kotlinx.serialization.Serializable
+import java.nio.file.Paths
 
 object FilesRouting {
     @Serializable
@@ -54,7 +52,6 @@ object FilesRouting {
                 return@post
             }
 
-
             try {
                 val channel = file.provider().asSource()
 
@@ -87,9 +84,8 @@ object FilesRouting {
         }
     }
 
-    private fun FilesService.UploadResult.Success.serializable(): UploadResponse {
-        return UploadResponse(id.serializable(), accessHash.serializable())
-    }
+    private fun FilesService.UploadResult.Success.serializable() =
+        UploadResponse(id.serializable(), accessHash.serializable())
 
     fun impureDownload(context: AppContext) {
         context.routing.get("/files/download/{idLong}/{accessHashString}") {
@@ -114,7 +110,6 @@ object FilesRouting {
                     call.respondPath(javaPath)
                 }
             }
-
         }
     }
 }

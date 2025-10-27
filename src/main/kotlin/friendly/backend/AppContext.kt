@@ -1,9 +1,9 @@
 package friendly.backend
 
-import kotlin.time.Clock
 import io.ktor.server.routing.Routing
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import kotlin.random.Random
+import kotlin.time.Clock
 
 /**
  * Experimental Approach to have god-object for DI instead of Map
