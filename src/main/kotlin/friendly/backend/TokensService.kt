@@ -3,6 +3,13 @@ package friendly.backend
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 object TokensService {
+
+    data class GenerateResult(
+        val token: Token,
+        val id: UserId,
+        val accessHash: UserAccessHash,
+    )
+
     suspend fun impureGenerate(
         context: AppContext,
         nickname: Nickname,
@@ -21,10 +28,4 @@ object TokensService {
             GenerateResult(token, id, accessHash)
         }
     }
-
-    data class GenerateResult(
-        val token: Token,
-        val id: UserId,
-        val accessHash: UserAccessHash,
-    )
 }

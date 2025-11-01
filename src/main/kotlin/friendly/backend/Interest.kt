@@ -1,6 +1,8 @@
 package friendly.backend
 
 data class Interest private constructor(val string: String) {
+    fun serializable(): InterestSerializable = InterestSerializable(string)
+
     companion object {
         val MaxLength: Int = 64
 
@@ -10,3 +12,6 @@ data class Interest private constructor(val string: String) {
         }
     }
 }
+
+fun List<Interest>.serializable(): List<InterestSerializable> =
+    map(Interest::serializable)

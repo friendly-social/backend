@@ -12,6 +12,7 @@ kotlin {
         progressiveMode = true
         optIn.add("kotlin.time.ExperimentalTime")
         freeCompilerArgs.add("-Xconsistent-data-class-copy-visibility")
+        freeCompilerArgs.add("-Xcontext-sensitive-resolution")
     }
 }
 

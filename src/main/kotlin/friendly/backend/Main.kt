@@ -36,6 +36,7 @@ suspend fun main() {
                 files = files,
             )
             AuthRouting.impureGenerate(context)
+            UsersRouting.impureDetails(context)
             FilesRouting.impureUpload(context)
             FilesRouting.impureDownload(context)
         }
