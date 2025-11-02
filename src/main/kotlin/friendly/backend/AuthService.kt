@@ -13,7 +13,7 @@ object AuthService {
         authorization: Authorization,
     ): AuthorizeResult {
         val token = authorization.token
-        val userId = authorization.userId
+        val userId = authorization.id
         return suspendTransaction(context.database) {
             val exists = TokensTable.impureExists(token, userId)
             if (exists) {

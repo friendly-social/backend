@@ -40,6 +40,7 @@ suspend fun main() {
             FilesRouting.impureUpload(context)
             FilesRouting.impureDownload(context)
             FriendsRouting.impureGenerate(context)
+            FriendsRouting.impureAdd(context)
         }
     }.start(wait = true)
 }

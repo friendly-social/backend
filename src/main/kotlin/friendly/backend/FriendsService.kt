@@ -16,7 +16,7 @@ object FriendsService {
         AuthService
             .impureAuthorize(context, authorization)
             .onFailure { return GenerateResult.Unauthorized }
-        val id = authorization.userId
+        val id = authorization.id
         val token = FriendToken.impureRandom(context.random)
         return suspendTransaction(context.database) {
             suspend fun clearPreviousTokens() {
@@ -25,6 +25,53 @@ object FriendsService {
             clearPreviousTokens()
             FriendTokensTable.impureInsert(token, id)
             GenerateResult.Success(token)
+        }
+    }
+
+    sealed interface AddResult {
+        data object Unauthorized : AddResult
+        data object FriendTokenExpired : AddResult
+        data object Success : AddResult
+    }
+
+    suspend fun impureAdd(
+        context: AppContext,
+        authorization: Authorization,
+        token: FriendToken,
+        userId: UserId,
+    ): AddResult {
+        AuthService
+            .impureAuthorize(context, authorization)
+            .onFailure { return AddResult.Unauthorized }
+        return suspendTransaction(context.database) {
+            val isTokenValid = FriendTokensTable.impureExists(userId, token)
+            if (isTokenValid) {
+                FriendTokensTable.impureDelete(userId)
+
+                val straightRelationExists = FriendsTable.impureExists(
+                    fromId = authorization.id,
+                    toId = userId,
+                )
+                if (!straightRelationExists) {
+                    FriendsTable.impureInsert(
+                        fromId = authorization.id,
+                        toId = userId,
+                    )
+                }
+                val reversedRelationExists = FriendsTable.impureExists(
+                    fromId = userId,
+                    toId = authorization.id,
+                )
+                if (reversedRelationExists) {
+                    FriendsTable.impureInsert(
+                        fromId = userId,
+                        toId = authorization.id,
+                    )
+                }
+                AddResult.Success
+            } else {
+                AddResult.FriendTokenExpired
+            }
         }
     }
 }

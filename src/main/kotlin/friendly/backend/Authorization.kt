@@ -3,7 +3,7 @@ package friendly.backend
 import io.ktor.server.routing.RoutingCall
 import kotlinx.serialization.SerializationException
 
-data class Authorization(val userId: UserId, val token: Token)
+data class Authorization(val id: UserId, val token: Token)
 
 val provideAuthorizationMessage = """
 Provide Authorization using 'X-User-Id' for userId and 'X-Token' for token
@@ -20,4 +20,8 @@ fun RoutingCall.authorizationOrThrow(): Authorization {
         ?.typed()
         ?: throw SerializationException(provideAuthorizationMessage)
     return Authorization(userId, token)
+}
+
+suspend fun RoutingCall.respondAuthorizationInvalid() {
+    respondBadRequest(message = "Provided authorization is invalid")
 }

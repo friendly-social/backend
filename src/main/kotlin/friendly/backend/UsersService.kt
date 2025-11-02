@@ -39,7 +39,7 @@ object UsersService {
             .impureAuthorize(context, authorization)
             .onFailure { return DetailsResult.Unauthorized }
         val descriptorId = when (descriptor) {
-            is Self -> authorization.userId
+            is Self -> authorization.id
             is Other -> descriptor.id
         }
         return suspendTransaction(context.database) {
