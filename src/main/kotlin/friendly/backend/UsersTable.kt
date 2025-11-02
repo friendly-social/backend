@@ -14,17 +14,26 @@ object UsersTable : Table("users") {
     private val descriptionColumn =
         varchar("description", UserDescription.MaxLength)
 
+    private val avatarIdColumn = long("avatar_id")
+    private val avatarAccessHashColumn =
+        varchar("avatar_access_hash", FileAccessHash.Length).nullable()
+
     override val primaryKey = PrimaryKey(idColumn)
 
     suspend fun impureInsert(
         accessHash: UserAccessHash,
         nickname: Nickname,
         description: UserDescription,
+        avatar: FileDescriptor?,
     ): UserId {
         val result = insert { statement ->
             statement[nicknameColumn] = nickname.string
             statement[descriptionColumn] = description.string
             statement[accessHashColumn] = accessHash.string
+            if (avatar != null) {
+                statement[avatarIdColumn] = avatar.id.long
+                statement[avatarAccessHashColumn] = avatar.accessHash.string
+            }
         }
         return UserId(result[idColumn])
     }
@@ -33,11 +42,20 @@ object UsersTable : Table("users") {
         val result = selectAll()
             .where(idColumn eq id.long)
             .firstOrNull() ?: return null
+        val avatarId = result[avatarIdColumn]
+            ?.let(::FileId)
+        val avatarAccessHash = result[avatarAccessHashColumn]
+            ?.let(FileAccessHash::orThrow)
         return Entry(
             id = UserId(result[idColumn]),
             accessHash = UserAccessHash.orThrow(result[accessHashColumn]),
             nickname = Nickname.orThrow(result[nicknameColumn]),
             description = UserDescription.orThrow(result[descriptionColumn]),
+            avatar = if (avatarId != null && avatarAccessHash != null) {
+                FileDescriptor(avatarId, avatarAccessHash)
+            } else {
+                null
+            },
         )
     }
 
@@ -46,5 +64,6 @@ object UsersTable : Table("users") {
         val accessHash: UserAccessHash,
         val nickname: Nickname,
         val description: UserDescription,
+        val avatar: FileDescriptor?,
     )
 }

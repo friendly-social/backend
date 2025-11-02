@@ -15,6 +15,7 @@ object TokensService {
         nickname: Nickname,
         description: UserDescription,
         interests: List<Interest>,
+        avatar: FileDescriptor?,
     ): GenerateResult {
         val token = Token.impureRandom(context.random)
         return suspendTransaction(context.database) {
@@ -23,6 +24,7 @@ object TokensService {
                 nickname = nickname,
                 description = description,
                 interests = interests,
+                avatar = avatar,
             )
             TokensTable.impureInsert(token, id)
             GenerateResult(token, id, accessHash)

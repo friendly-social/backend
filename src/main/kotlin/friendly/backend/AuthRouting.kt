@@ -12,6 +12,7 @@ object AuthRouting {
         val nickname: NicknameSerializable,
         val description: UserDescriptionSerializable,
         val interests: List<InterestSerializable>,
+        val avatar: FileDescriptorSerializable?,
     )
 
     @Serializable
@@ -29,6 +30,7 @@ object AuthRouting {
                 nickname = body.nickname.typed(),
                 description = body.description.typed(),
                 interests = body.interests.typed(),
+                avatar = body.avatar?.typed(),
             )
             call.respond(result.toResponse())
         }

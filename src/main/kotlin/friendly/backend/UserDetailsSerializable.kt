@@ -9,4 +9,5 @@ data class UserDetailsSerializable(
     val nickname: NicknameSerializable,
     val description: UserDescriptionSerializable,
     val interests: List<InterestSerializable>,
+    val avatar: FileDescriptorSerializable?,
 )
