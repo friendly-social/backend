@@ -49,20 +49,32 @@ object UsersService {
             is Other -> descriptor.id
         }
         return suspendTransaction(context.database) {
-            val usersTableEntry = UsersTable.impureSelect(descriptorId)
-            if (usersTableEntry == null) {
+            val details = impureDetails(context, listOf(descriptorId)).first()
+            if (details == null) {
                 DetailsResult.NotFound
             } else {
-                val interests = InterestsTable.impureSelect(descriptorId)
-                val details = UserDetails(
-                    id = usersTableEntry.id,
-                    accessHash = usersTableEntry.accessHash,
-                    nickname = usersTableEntry.nickname,
-                    description = usersTableEntry.description,
-                    avatar = usersTableEntry.avatar,
-                    interests = interests,
-                )
                 DetailsResult.Success(details)
+            }
+        }
+    }
+
+    suspend fun impureDetails(
+        context: AppContext,
+        ids: List<UserId>,
+    ): List<UserDetails?> {
+        return suspendTransaction(context.database) {
+            val entries = UsersTable.impureSelect(ids)
+            val interests = InterestsTable.impureSelect(ids)
+            entries.zip(interests) { entry, interests ->
+                entry ?: return@zip null
+                UserDetails(
+                    id = entry.id,
+                    accessHash = entry.accessHash,
+                    nickname = entry.nickname,
+                    description = entry.description,
+                    avatar = entry.avatar,
+                    interests = interests.list,
+                )
             }
         }
     }

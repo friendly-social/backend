@@ -1,6 +1,8 @@
 package friendly.backend
 
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -26,4 +28,9 @@ object FriendsTable : Table("friends") {
             .firstOrNull()
         return entry != null
     }
+
+    suspend fun impureSelect(fromId: UserId): List<UserId> = selectAll()
+        .where(fromIdColumn eq fromId.long)
+        .map { statement -> UserId(statement[toIdColumn]) }
+        .toList()
 }

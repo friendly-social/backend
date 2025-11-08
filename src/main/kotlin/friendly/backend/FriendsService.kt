@@ -62,7 +62,7 @@ object FriendsService {
                     fromId = userId,
                     toId = authorization.id,
                 )
-                if (reversedRelationExists) {
+                if (!reversedRelationExists) {
                     FriendsTable.impureInsert(
                         fromId = userId,
                         toId = authorization.id,
@@ -73,5 +73,19 @@ object FriendsService {
                 AddResult.FriendTokenExpired
             }
         }
+    }
+
+    suspend fun impureList(
+        context: AppContext,
+        fromId: UserId,
+    ): List<UserDetails> = suspendTransaction(context.database) {
+        val friendIds = FriendsTable.impureSelect(fromId)
+        val friendDetails = UsersService.impureDetails(context, friendIds)
+            .map { details ->
+                details ?: error(
+                    "User not found, but it is unexpected since all friend ids must be existing users",
+                )
+            }
+        friendDetails
     }
 }

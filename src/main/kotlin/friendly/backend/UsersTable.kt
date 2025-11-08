@@ -1,8 +1,10 @@
 package friendly.backend
 
-import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
+import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.Table
-import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 
@@ -14,7 +16,7 @@ object UsersTable : Table("users") {
     private val descriptionColumn =
         varchar("description", UserDescription.MaxLength)
 
-    private val avatarIdColumn = long("avatar_id")
+    private val avatarIdColumn = long("avatar_id").nullable()
     private val avatarAccessHashColumn =
         varchar("avatar_access_hash", FileAccessHash.Length).nullable()
 
@@ -38,19 +40,25 @@ object UsersTable : Table("users") {
         return UserId(result[idColumn])
     }
 
-    suspend fun impureSelect(id: UserId): Entry? {
-        val result = selectAll()
-            .where(idColumn eq id.long)
-            .firstOrNull() ?: return null
-        val avatarId = result[avatarIdColumn]
+    suspend fun impureSelect(ids: List<UserId>): List<Entry?> {
+        val results = selectAll()
+            .where(idColumn inList ids.map(UserId::long))
+            .map { row -> row.toEntry() }
+            .toList()
+            .associateBy(Entry::id)
+        return ids.map { id -> results[id] }
+    }
+
+    private fun ResultRow.toEntry(): Entry {
+        val avatarId = this[avatarIdColumn]
             ?.let(::FileId)
-        val avatarAccessHash = result[avatarAccessHashColumn]
+        val avatarAccessHash = this[avatarAccessHashColumn]
             ?.let(FileAccessHash::orThrow)
         return Entry(
-            id = UserId(result[idColumn]),
-            accessHash = UserAccessHash.orThrow(result[accessHashColumn]),
-            nickname = Nickname.orThrow(result[nicknameColumn]),
-            description = UserDescription.orThrow(result[descriptionColumn]),
+            id = UserId(this[idColumn]),
+            accessHash = UserAccessHash.orThrow(this[accessHashColumn]),
+            nickname = Nickname.orThrow(this[nicknameColumn]),
+            description = UserDescription.orThrow(this[descriptionColumn]),
             avatar = if (avatarId != null && avatarAccessHash != null) {
                 FileDescriptor(avatarId, avatarAccessHash)
             } else {
