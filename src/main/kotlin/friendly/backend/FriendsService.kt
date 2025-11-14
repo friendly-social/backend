@@ -49,9 +49,8 @@ object FriendsService {
                 FriendTokensTable.impureDelete(userId)
 
                 val straightRelationExists = FriendsTable.impureExists(
-                    fromId = authorization.id,
-                    toId = userId,
-                )
+                    listOf(FriendsTable.Entry(authorization.id, userId)),
+                ).first()
                 if (!straightRelationExists) {
                     FriendsTable.impureInsert(
                         fromId = authorization.id,
@@ -59,9 +58,8 @@ object FriendsService {
                     )
                 }
                 val reversedRelationExists = FriendsTable.impureExists(
-                    fromId = userId,
-                    toId = authorization.id,
-                )
+                    listOf(FriendsTable.Entry(userId, authorization.id)),
+                ).first()
                 if (!reversedRelationExists) {
                     FriendsTable.impureInsert(
                         fromId = userId,
@@ -79,7 +77,9 @@ object FriendsService {
         context: AppContext,
         fromId: UserId,
     ): List<UserDetails> = suspendTransaction(context.database) {
-        val friendIds = FriendsTable.impureSelect(fromId)
+        val friendIds = FriendsTable
+            .impureSelectOutgoing(listOf(fromId))
+            .map { entry -> entry.toId }
         val friendDetails = UsersService.impureDetails(context, friendIds)
             .map { details ->
                 details ?: error(

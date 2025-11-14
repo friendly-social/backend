@@ -10,4 +10,13 @@ data class UserDetailsSerializable(
     val description: UserDescriptionSerializable,
     val interests: List<InterestSerializable>,
     val avatar: FileDescriptorSerializable?,
-)
+) {
+    fun typed(): UserDetails = UserDetails(
+        id = id.typed(),
+        accessHash = accessHash.typed(),
+        nickname = nickname.typed(),
+        description = description.typed(),
+        interests = interests.map { interest -> interest.typed() },
+        avatar = avatar?.typed(),
+    )
+}
