@@ -60,12 +60,14 @@ object FilesRouting {
                     ?.toLong()
                     ?.let(FileSize::orThrow)
 
-                val result = FilesService.impureUpload(
-                    context = context,
-                    ip = IpAddress.orThrow(cloudflareBasedIP),
-                    sizeMetadata = sizeMetadata,
-                    source = channel.buffered(),
-                )
+                val result = channel.use {
+                    FilesService.impureUpload(
+                        context = context,
+                        ip = IpAddress.orThrow(cloudflareBasedIP),
+                        sizeMetadata = sizeMetadata,
+                        source = channel.buffered(),
+                    )
+                }
 
                 when (result) {
                     is FilesService.UploadResult.Success -> {
