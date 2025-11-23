@@ -43,6 +43,8 @@ suspend fun main() {
             FriendsRouting.impureAdd(context)
             NetworkRouting.impureDetails(context)
             FeedRouting.impureQueue(context)
+            ConnectionsRouting.impureRequest(context)
+            ConnectionsRouting.impureDecline(context)
         }
     }.start(wait = true)
 }
