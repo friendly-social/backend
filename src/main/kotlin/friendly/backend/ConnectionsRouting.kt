@@ -4,7 +4,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.post
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 object ConnectionsRouting {

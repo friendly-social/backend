@@ -71,4 +71,31 @@ object ConnectionsService {
         return user
     }
 
+    suspend fun impureList(
+        context: AppContext,
+        id: UserId,
+    ): List<UserDetails> = suspendTransaction(context.database) {
+        val outgoingEntries = ConnectionsTable
+            .impureSelectOutgoing(id)
+        val outgoingDescriptors = outgoingEntries
+            .filter { entry -> entry.decision == Request }
+            .map { entry -> entry.descriptor }
+        val incomingDescriptors = outgoingDescriptors
+            .map { descriptor -> descriptor.swap() }
+        val incomingDecisions = ConnectionsTable
+            .impureSelect(incomingDescriptors)
+            .iterator()
+        val mutualConnections = outgoingDescriptors
+            .filter { incomingDecisions.next() == Request }
+            .map { descriptor -> descriptor.toId }
+        val connectionDetails = UsersService.impureDetails(
+            context = context,
+            ids = mutualConnections,
+        ).map { details ->
+            details ?: error(
+                "User not found, but it is unexpected since all friend ids must be existing users",
+            )
+        }
+        connectionDetails
+    }
 }

@@ -15,8 +15,11 @@ object NetworkService {
         AuthService
             .impureAuthorize(context, authorization)
             .onFailure { return DetailsResult.Unauthorized }
-        val friendDetails = FriendsService.impureList(context, authorization.id)
-        val networkDetails = NetworkDetails(friendDetails)
+        val friendDetails = FriendsService
+            .impureList(context, authorization.id)
+        val connectionDetails = ConnectionsService
+            .impureList(context, authorization.id)
+        val networkDetails = NetworkDetails(friendDetails, connectionDetails)
         return DetailsResult.Success(networkDetails)
     }
 
