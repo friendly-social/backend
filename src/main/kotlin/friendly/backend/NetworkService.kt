@@ -17,9 +17,7 @@ object NetworkService {
             .onFailure { return DetailsResult.Unauthorized }
         val friendDetails = FriendsService
             .impureList(context, authorization.id)
-        val connectionDetails = ConnectionsService
-            .impureList(context, authorization.id)
-        val networkDetails = NetworkDetails(friendDetails, connectionDetails)
+        val networkDetails = NetworkDetails(friendDetails)
         return DetailsResult.Success(networkDetails)
     }
 
@@ -36,10 +34,10 @@ object NetworkService {
             if (frontier.isEmpty()) break
             val outgoing = FriendsTable.impureSelectOutgoing(frontier)
             val reversed = outgoing.map { (fromId, toId) ->
-                FriendsTable.Entry(toId, fromId)
+                FriendsTable.Descriptor(toId, fromId)
             }
-            val existing = FriendsTable.impureExists(reversed).iterator()
-            val mutual = outgoing.filter { existing.next() }
+            val existing = FriendsTable.impureSelect(reversed).iterator()
+            val mutual = outgoing.filter { existing.next() == Request }
             for ((fromId, toId) in mutual) {
                 if (toId in visitedIds) continue
                 result += NetworkConnection(

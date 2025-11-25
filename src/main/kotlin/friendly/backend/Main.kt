@@ -41,10 +41,10 @@ suspend fun main() {
             FilesRouting.impureDownload(context)
             FriendsRouting.impureGenerate(context)
             FriendsRouting.impureAdd(context)
+            FriendsRouting.impureRequest(context)
+            FriendsRouting.impureDecline(context)
             NetworkRouting.impureDetails(context)
             FeedRouting.impureQueue(context)
-            ConnectionsRouting.impureRequest(context)
-            ConnectionsRouting.impureDecline(context)
         }
     }.start(wait = true)
 }
