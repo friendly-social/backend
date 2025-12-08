@@ -9,6 +9,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
@@ -26,6 +27,7 @@ suspend fun main() {
     embeddedServer(Netty, port) {
         installStatusPages()
         installContentNegotiation()
+        installCors()
 
         routing {
             val context = AppContext(
@@ -73,5 +75,13 @@ private fun Application.installStatusPages() {
 private fun Application.installContentNegotiation() {
     install(ContentNegotiation) {
         json()
+    }
+}
+
+private fun Application.installCors() {
+    install(CORS) {
+        anyHost()
+        allowHeader("*")
+        allowNonSimpleContentTypes = true
     }
 }
