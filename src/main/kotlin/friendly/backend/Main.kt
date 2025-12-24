@@ -53,6 +53,12 @@ suspend fun main() {
 
 private fun Application.installStatusPages() {
     install(StatusPages) {
+        exception<SerializationException> { call, exception ->
+            call.respondText(
+                text = exception.message.orEmpty(),
+                status = HttpStatusCode.BadRequest,
+            )
+        }
         exception<BadRequestException> { call, badRequest ->
             val message = when (val cause = badRequest.cause) {
                 is ContentConvertException,
@@ -61,7 +67,7 @@ private fun Application.installStatusPages() {
                 else -> badRequest.message
             }
             call.respondText(
-                text = "400: $message",
+                text = message.orEmpty(),
                 status = HttpStatusCode.BadRequest,
             )
         }
@@ -81,7 +87,9 @@ private fun Application.installContentNegotiation() {
 private fun Application.installCors() {
     install(CORS) {
         anyHost()
-        allowHeader("*")
+        anyMethod()
+        allowHeader("X-Token")
+        allowHeader("X-User-Id")
         allowNonSimpleContentTypes = true
     }
 }

@@ -1,0 +1,50 @@
+<div class="container" style="
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+">
+    <p>
+    AccessHash: <span id="hash">Loading...</span><br>
+    User Info: <span id="user">Loading...</span>
+    </p>
+</div>
+
+<script>
+(async () => {
+    const hashSpan = document.getElementById("hash")
+    const userSpan = document.getElementById("user")
+    const url = 'http://localhost:8080'
+    const response = await fetch(
+        `${url}/auth/generate`,
+        {
+            method: 'post',
+            body: JSON.stringify({
+                nickname: 'y9san9',
+                description: 'Testing CORS',
+                interests: ['CORS'],
+                avatar: null,
+            }),
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+        }
+    );
+    const json = await response.json();
+    const {accessHash, id, token} = json;
+    hashSpan.textContent = accessHash.substring(0, 15) + "...";
+    const user = await fetch(
+        `${url}/users/details/${id}/${accessHash}`,
+        {
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Token': token,
+                'X-User-Id': id,
+            },
+        }
+    )
+    userSpan.textContent = (await user.text()).substring(0, 30) + "...";
+})();
+</script>
