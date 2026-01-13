@@ -33,11 +33,13 @@ object NetworkService {
         for (degree in 1..maxDegrees.int) {
             if (frontier.isEmpty()) break
             val outgoing = FriendsTable.impureSelectOutgoing(frontier)
-            val reversed = outgoing.map { (fromId, toId) ->
-                FriendsTable.Descriptor(toId, fromId)
+            val reversed = outgoing.map { outgoing ->
+                outgoing.descriptor.swap()
             }
             val existing = FriendsTable.impureSelect(reversed).iterator()
-            val mutual = outgoing.filter { existing.next() == Request }
+            val mutual = outgoing.filter { outgoing ->
+                outgoing.decision == Request && existing.next() == Request
+            }
             for ((fromId, toId) in mutual) {
                 if (toId in visitedIds) continue
                 result += NetworkConnection(
