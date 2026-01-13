@@ -48,6 +48,15 @@ object FriendsTable : Table("friends") {
             .map { row -> row.toEntry() }
             .toList()
 
+    /**
+     * Selects such users who added [fromId] as their friend.
+     */
+    suspend fun impureSelectIncoming(toIds: List<UserId>): List<Entry> =
+        selectAll()
+            .where(toIdColumn inList toIds.map(UserId::long))
+            .map { row -> row.toEntry() }
+            .toList()
+
     data class Descriptor(val fromId: UserId, val toId: UserId) {
         fun swap(): Descriptor = Descriptor(toId, fromId)
     }

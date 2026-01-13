@@ -20,6 +20,11 @@ object FeedService {
                 .impureSelectOutgoing(fromIds = listOf(authorization.id))
                 .map { entry -> entry.toId }
         }
+        val incoming = suspendTransaction(context.database) {
+            FriendsTable
+                .impureSelectIncoming(toIds = listOf(authorization.id))
+                .map { entry -> entry.fromId }
+        }
         val network = NetworkService.impureNetworkConnections(
             context = context,
             fromId = authorization.id,
@@ -64,7 +69,10 @@ object FeedService {
                     details = details,
                 )
             }
-        val feed = FeedQueue(entries = secondDegree + thirdDegree)
+        var entries = secondDegree + thirdDegree
+        entries = entries.filter { entry -> entry.details.id in incoming } +
+            entries.filter { entry -> entry.details.id !in incoming }
+        val feed = FeedQueue(entries)
         return QueueResult.Success(feed)
     }
 }
