@@ -54,8 +54,6 @@ object NetworkService {
                 .filter { userId -> userId !in visitedIds }
             visitedIds += frontier
         }
-        // todo: check the message with demn
-        println(result)
         result
     }
 }

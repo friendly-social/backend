@@ -29,22 +29,23 @@ object FeedService {
         val network = NetworkService.impureNetworkConnections(
             context = context,
             fromId = authorization.id,
-            maxDegrees = NetworkDegree.Three,
+            maxDegrees = NetworkDegree.Four,
         )
             .filter { connection -> connection.toId !in outgoing }
             .groupBy { (degree) -> degree }
-        val secondDegreeRaw = network
-            .getOrElse(NetworkDegree.Two) { emptyList() }
-        val thirdDegreeRaw = network
-            .getOrElse(NetworkDegree.Three) { emptyList() }
+        val neighboringNetworkRaw =
+            network.getOrElse(NetworkDegree.Two) { emptyList() }
+        val extendedNetworkRaw =
+            network.getOrElse(NetworkDegree.Three) { emptyList() } +
+                network.getOrElse(NetworkDegree.Four) { emptyList() }
         val users = UsersService.impureDetails(
             context = context,
-            ids = secondDegreeRaw.flatMap { (_, fromId, toId) ->
+            ids = neighboringNetworkRaw.flatMap { (_, fromId, toId) ->
                 listOf(fromId, toId)
-            } + thirdDegreeRaw.map { (_, _, toId) -> toId },
+            } + extendedNetworkRaw.map { (_, _, toId) -> toId },
         )
             .associateBy { user -> user!!.id }
-        val secondDegree = secondDegreeRaw
+        val neighboringNetwork = neighboringNetworkRaw
             .map { (_, fromId, toId) -> users[fromId]!! to users[toId]!! }
             .groupBy(
                 keySelector = { (_, to) -> to },
@@ -58,7 +59,7 @@ object FeedService {
                     details = details,
                 )
             }
-        val thirdDegree = thirdDegreeRaw
+        val extendedNetwork = extendedNetworkRaw
             .map { (_, fromId, toId) -> fromId to users[toId]!! }
             .groupBy { (_, to) -> to }
             .map { (details, _) ->
@@ -69,14 +70,13 @@ object FeedService {
                     details = details,
                 )
             }
-        var entries = secondDegree + thirdDegree
+        var entries = neighboringNetwork + extendedNetwork
         entries = entries.filter { entry ->
             incoming[entry.details.id] == Request
         } + entries.filter { entry ->
             entry.details.id !in incoming
         }
         val feed = FeedQueue(entries)
-        println(feed)
         return QueueResult.Success(feed)
     }
 }

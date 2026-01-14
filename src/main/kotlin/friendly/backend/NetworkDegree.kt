@@ -6,5 +6,6 @@ data class NetworkDegree(val int: Int) {
         val One: NetworkDegree = NetworkDegree(int = 1)
         val Two: NetworkDegree = NetworkDegree(int = 2)
         val Three: NetworkDegree = NetworkDegree(int = 3)
+        val Four: NetworkDegree = NetworkDegree(int = 4)
     }
 }
