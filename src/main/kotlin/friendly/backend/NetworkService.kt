@@ -45,8 +45,8 @@ object NetworkService {
                 if (toId in visitedIds) continue
                 result += NetworkConnection(
                     degree = NetworkDegree(degree),
-                    fromId,
-                    toId,
+                    fromId = fromId,
+                    toId = toId,
                 )
             }
             frontier = mutual.map { (_, toId) -> toId }
@@ -54,6 +54,8 @@ object NetworkService {
                 .filter { userId -> userId !in visitedIds }
             visitedIds += frontier
         }
+        // todo: check the message with demn
+        println(result)
         result
     }
 }
