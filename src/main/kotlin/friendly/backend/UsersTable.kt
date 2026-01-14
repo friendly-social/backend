@@ -13,10 +13,14 @@ object UsersTable : Table("users") {
     private val accessHashColumn = varchar("access_hash", UserAccessHash.Length)
     private val nicknameColumn = varchar("nickname", Nickname.MaxLength)
 
+    private val socialLinkColumn =
+        varchar("social_link", SocialLink.MaxLength).nullable()
+
     private val descriptionColumn =
         varchar("description", UserDescription.MaxLength)
 
     private val avatarIdColumn = long("avatar_id").nullable()
+
     private val avatarAccessHashColumn =
         varchar("avatar_access_hash", FileAccessHash.Length).nullable()
 
@@ -27,11 +31,13 @@ object UsersTable : Table("users") {
         nickname: Nickname,
         description: UserDescription,
         avatar: FileDescriptor?,
+        socialLink: SocialLink?,
     ): UserId {
         val result = insert { statement ->
             statement[nicknameColumn] = nickname.string
             statement[descriptionColumn] = description.string
             statement[accessHashColumn] = accessHash.string
+            statement[socialLinkColumn] = socialLink?.string
             if (avatar != null) {
                 statement[avatarIdColumn] = avatar.id.long
                 statement[avatarAccessHashColumn] = avatar.accessHash.string
@@ -64,6 +70,7 @@ object UsersTable : Table("users") {
             } else {
                 null
             },
+            socialLink = this[socialLinkColumn]?.let(SocialLink::orThrow),
         )
     }
 
@@ -73,5 +80,6 @@ object UsersTable : Table("users") {
         val nickname: Nickname,
         val description: UserDescription,
         val avatar: FileDescriptor?,
+        val socialLink: SocialLink?,
     )
 }

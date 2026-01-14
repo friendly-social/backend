@@ -13,6 +13,7 @@ object AuthRouting {
         val description: UserDescriptionSerializable,
         val interests: List<InterestSerializable>,
         val avatar: FileDescriptorSerializable?,
+        val socialLink: SocialLinkSerializable?,
     )
 
     @Serializable
@@ -31,6 +32,7 @@ object AuthRouting {
                 description = body.description.typed(),
                 interests = body.interests.typed(),
                 avatar = body.avatar?.typed(),
+                socialLink = body.socialLink?.typed(),
             )
             call.respond(result.toResponse())
         }

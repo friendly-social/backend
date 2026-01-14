@@ -12,6 +12,7 @@ object UsersService {
         description: UserDescription,
         interests: List<Interest>,
         avatar: FileDescriptor?,
+        socialLink: SocialLink?,
     ): CreateResult = suspendTransaction(context.database) {
         val accessHash = UserAccessHash.impureRandom(context.random)
         val id = UsersTable.impureInsert(
@@ -19,6 +20,7 @@ object UsersService {
             nickname = nickname,
             description = description,
             avatar = avatar,
+            socialLink = socialLink,
         )
         InterestsTable.impureInsert(id, interests)
         CreateResult(id, accessHash)
@@ -74,6 +76,7 @@ object UsersService {
                     description = entry.description,
                     avatar = entry.avatar,
                     interests = interests.list,
+                    socialLink = entry.socialLink,
                 )
             }
         }
