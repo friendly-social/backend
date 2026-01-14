@@ -70,13 +70,12 @@ object FeedService {
                     details = details,
                 )
             }
-        val entries = secondDegree + thirdDegree
-        // var entries = secondDegree + thirdDegree
-        // entries = entries.filter { entry ->
-        //     incoming[entry.details.id] == Request
-        // } + entries.filter { entry ->
-        //     entry.details.id !in incoming
-        // }
+        var entries = secondDegree + thirdDegree
+        entries = entries.filter { entry ->
+            incoming[entry.details.id] == Request
+        } + entries.filter { entry ->
+            entry.details.id !in incoming
+        }
         val feed = FeedQueue(entries)
         return QueueResult.Success(feed)
     }

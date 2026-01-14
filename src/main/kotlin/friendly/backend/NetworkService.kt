@@ -38,7 +38,8 @@ object NetworkService {
             }
             val existing = FriendsTable.impureSelect(reversed).iterator()
             val mutual = outgoing.filter { outgoing ->
-                outgoing.decision == Request && existing.next() == Request
+                val existing = existing.next()
+                outgoing.decision == Request && existing == Request
             }
             for ((fromId, toId) in mutual) {
                 if (toId in visitedIds) continue
