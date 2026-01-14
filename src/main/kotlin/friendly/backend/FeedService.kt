@@ -41,9 +41,7 @@ object FeedService {
             context = context,
             ids = secondDegreeRaw.flatMap { (_, fromId, toId) ->
                 listOf(fromId, toId)
-            } + thirdDegreeRaw.flatMap { (_, fromId, toId) ->
-                listOf(fromId, toId)
-            },
+            } + thirdDegreeRaw.map { (_, toId) -> toId },
         )
             .map { user -> user ?: error("All users should be found") }
             .iterator()
@@ -62,7 +60,7 @@ object FeedService {
                 )
             }
         val thirdDegree = thirdDegreeRaw
-            .map { users.next() to users.next() } // from, to
+            .map { (_, fromId) -> fromId to users.next() }
             .groupBy { (_, to) -> to }
             .map { (details, _) ->
                 FeedQueue.Entry(
@@ -72,12 +70,13 @@ object FeedService {
                     details = details,
                 )
             }
-        var entries = secondDegree + thirdDegree
-        entries = entries.filter { entry ->
-            incoming[entry.details.id] == Request
-        } + entries.filter { entry ->
-            entry.details.id !in incoming
-        }
+        val entries = secondDegree + thirdDegree
+        // var entries = secondDegree + thirdDegree
+        // entries = entries.filter { entry ->
+        //     incoming[entry.details.id] == Request
+        // } + entries.filter { entry ->
+        //     entry.details.id !in incoming
+        // }
         val feed = FeedQueue(entries)
         return QueueResult.Success(feed)
     }
