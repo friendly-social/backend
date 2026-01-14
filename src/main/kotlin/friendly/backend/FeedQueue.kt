@@ -7,12 +7,14 @@ data class FeedQueue(val entries: List<Entry>) {
     }
 
     data class Entry(
+        val isRequest: Boolean,
         val isExtendedNetwork: Boolean,
         val commonFriends: List<UserDetails>,
         val details: UserDetails,
     ) {
         fun serializable(): FeedQueueSerializable.Entry =
             FeedQueueSerializable.Entry(
+                isRequest = isRequest,
                 isExtendedNetwork = isExtendedNetwork,
                 commonFriends = commonFriends.map { user ->
                     user.serializable()

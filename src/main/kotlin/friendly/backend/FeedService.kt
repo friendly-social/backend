@@ -55,6 +55,7 @@ object FeedService {
             )
             .map { (details, commonFriends) ->
                 FeedQueue.Entry(
+                    isRequest = incoming[details.id] == Request,
                     isExtendedNetwork = false,
                     commonFriends = commonFriends,
                     details = details,
@@ -65,6 +66,7 @@ object FeedService {
             .groupBy { (_, to) -> to }
             .map { (details, _) ->
                 FeedQueue.Entry(
+                    isRequest = incoming[details.id] == Request,
                     isExtendedNetwork = true,
                     commonFriends = emptyList(),
                     details = details,
