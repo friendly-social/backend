@@ -146,6 +146,7 @@ object FriendsService {
     ): List<UserDetails> = suspendTransaction(context.database) {
         val outgoingEntries = FriendsTable
             .impureSelectOutgoing(listOf(fromId))
+            .asReversed()
         val outgoingDescriptors = outgoingEntries
             .filter { entry -> entry.decision == Request }
             .map { entry -> entry.descriptor }
