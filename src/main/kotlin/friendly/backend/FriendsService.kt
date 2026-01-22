@@ -43,6 +43,9 @@ object FriendsService {
         AuthService
             .impureAuthorize(context, authorization)
             .onFailure { return AddResult.Unauthorized }
+        if (userId == authorization.id) {
+            return Success
+        }
         return suspendTransaction(context.database) {
             val isTokenValid = FriendTokensTable.impureExists(userId, token)
             if (isTokenValid) {
@@ -79,6 +82,9 @@ object FriendsService {
         AuthService
             .impureAuthorize(context, authorization)
             .onFailure { return RequestResult.Unauthorized }
+        if (userId == authorization.id) {
+            return Success
+        }
         impureGetUser(context, userId, userAccessHash)
             ?: return RequestResult.NotFound
         return suspendTransaction(context.database) {
@@ -106,6 +112,9 @@ object FriendsService {
         AuthService
             .impureAuthorize(context, authorization)
             .onFailure { return DeclineResult.Unauthorized }
+        if (userId == authorization.id) {
+            return Success
+        }
         impureGetUser(context, userId, userAccessHash)
             ?: return DeclineResult.NotFound
         return suspendTransaction(context.database) {
