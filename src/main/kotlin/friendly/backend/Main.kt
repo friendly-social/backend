@@ -8,6 +8,7 @@ import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.BadRequestException
+import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.statuspages.StatusPages
@@ -28,6 +29,7 @@ suspend fun main() {
         installStatusPages()
         installContentNegotiation()
         installCors()
+        installCallLogging()
 
         routing {
             val context = AppContext(
@@ -91,5 +93,11 @@ private fun Application.installCors() {
         allowHeader("X-Token")
         allowHeader("X-User-Id")
         allowNonSimpleContentTypes = true
+    }
+}
+
+private fun Application.installCallLogging() {
+    install(CallLogging) {
+        level = INFO
     }
 }
