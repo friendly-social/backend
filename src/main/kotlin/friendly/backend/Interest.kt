@@ -12,6 +12,3 @@ data class Interest private constructor(val string: String) {
         }
     }
 }
-
-fun List<Interest>.serializable(): List<InterestSerializable> =
-    map(Interest::serializable)

@@ -14,7 +14,7 @@ object TokensService {
         context: AppContext,
         nickname: Nickname,
         description: UserDescription,
-        interests: List<Interest>,
+        interests: InterestList,
         avatar: FileDescriptor?,
         socialLink: SocialLink?,
     ): GenerateResult {

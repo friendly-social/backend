@@ -13,8 +13,8 @@ object InterestsTable : Table("interests") {
 
     override val primaryKey = PrimaryKey(nameColumn, userIdColumn)
 
-    suspend fun impureInsert(userId: UserId, interests: List<Interest>) {
-        batchInsert(interests) { (name) ->
+    suspend fun impureInsert(userId: UserId, interests: InterestList) {
+        batchInsert(interests.raw) { (name) ->
             this[userIdColumn] = userId.long
             this[nameColumn] = name
         }
@@ -34,11 +34,12 @@ object InterestsTable : Table("interests") {
 
         return userIds.map { userId ->
             val entries = entries.getOrElse(userId) { emptyList() }
-            val interests = entries.map(Entry::interest)
+            val interestsRaw = entries.map(Entry::interest)
+            val interests = InterestList.orThrow(interestsRaw)
             UserInterests(userId, interests)
         }
     }
 
     class Entry(val userId: UserId, val interest: Interest)
-    class UserInterests(val userId: UserId, val list: List<Interest>)
+    class UserInterests(val userId: UserId, val list: InterestList)
 }

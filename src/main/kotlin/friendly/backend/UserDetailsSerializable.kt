@@ -8,7 +8,7 @@ data class UserDetailsSerializable(
     val accessHash: UserAccessHashSerializable,
     val nickname: NicknameSerializable,
     val description: UserDescriptionSerializable,
-    val interests: List<InterestSerializable>,
+    val interests: InterestListSerializable,
     val avatar: FileDescriptorSerializable?,
     val socialLink: SocialLinkSerializable?,
 ) {
@@ -17,7 +17,7 @@ data class UserDetailsSerializable(
         accessHash = accessHash.typed(),
         nickname = nickname.typed(),
         description = description.typed(),
-        interests = interests.map { interest -> interest.typed() },
+        interests = interests.typed(),
         avatar = avatar?.typed(),
         socialLink = socialLink?.typed(),
     )

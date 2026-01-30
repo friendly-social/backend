@@ -11,7 +11,7 @@ object AuthRouting {
     private data class GenerateBody(
         val nickname: NicknameSerializable,
         val description: UserDescriptionSerializable,
-        val interests: List<InterestSerializable>,
+        val interests: InterestListSerializable,
         val avatar: FileDescriptorSerializable?,
         val socialLink: SocialLinkSerializable?,
     )

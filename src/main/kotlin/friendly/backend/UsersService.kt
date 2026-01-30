@@ -10,7 +10,7 @@ object UsersService {
         context: AppContext,
         nickname: Nickname,
         description: UserDescription,
-        interests: List<Interest>,
+        interests: InterestList,
         avatar: FileDescriptor?,
         socialLink: SocialLink?,
     ): CreateResult = suspendTransaction(context.database) {
