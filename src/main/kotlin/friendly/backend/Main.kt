@@ -41,6 +41,7 @@ suspend fun main() {
             )
             AuthRouting.impureGenerate(context)
             AuthRouting.impureFirebase(context)
+            AuthRouting.impureLogout(context)
             UsersRouting.impureDetails(context)
             FilesRouting.impureUpload(context)
             FilesRouting.impureDownload(context)

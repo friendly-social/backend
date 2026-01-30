@@ -51,7 +51,7 @@ object AuthRouting {
     )
 
     @Serializable
-    private data object FirebaseResponse
+    data object FirebaseResponse
 
     fun impureFirebase(context: AppContext) {
         context.routing.post("/auth/firebase") {
@@ -67,7 +67,7 @@ object AuthRouting {
     }
 
     @Serializable
-    private data object LogoutResponse
+    data object LogoutResponse
 
     fun impureLogout(context: AppContext) {
         context.routing.post("/auth/logout") {
