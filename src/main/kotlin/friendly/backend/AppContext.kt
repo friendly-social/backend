@@ -1,6 +1,8 @@
 package friendly.backend
 
 import io.ktor.server.routing.Routing
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import kotlin.random.Random
 import kotlin.time.Clock
@@ -18,6 +20,10 @@ class AppContext(
     random: Random? = null,
     clock: Clock? = null,
     files: FilesContext? = null,
+    notifications: NotificationsContext? = null,
+    firebase: FirebaseContext? = null,
+    json: Json? = null,
+    scope: CoroutineScope? = null,
 ) {
     private val _database = database
     val database: R2dbcDatabase
@@ -38,4 +44,45 @@ class AppContext(
     private val _files = files
     val files: FilesContext
         get() = _files ?: error("FilesContext is not configured.")
+
+    private val _notifications = notifications
+    val notifications: NotificationsContext
+        get() = _notifications
+            ?: error("NotificationsContext is not configured.")
+
+    private val _firebase = firebase
+    val firebase: FirebaseContext
+        get() = _firebase
+            ?: error("FirebaseContext is not configured.")
+
+    private val _json = json
+    val json: Json
+        get() = _json
+            ?: error("Json is not configured.")
+
+    private val _scope = scope
+    val scope: CoroutineScope
+        get() = _scope ?: error("CoroutineScope is not configured.")
+
+    fun copy(
+        database: R2dbcDatabase? = null,
+        routing: Routing? = null,
+        random: Random? = null,
+        clock: Clock? = null,
+        files: FilesContext? = null,
+        notifications: NotificationsContext? = null,
+        firebase: FirebaseContext? = null,
+        json: Json? = null,
+        scope: CoroutineScope? = null,
+    ): AppContext = AppContext(
+        database = database ?: _database,
+        routing = routing ?: _routing,
+        random = random ?: _random,
+        clock = clock ?: _clock,
+        files = files ?: _files,
+        notifications = notifications ?: _notifications,
+        firebase = firebase ?: _firebase,
+        json = json ?: _json,
+        scope = scope ?: _scope,
+    )
 }

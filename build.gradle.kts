@@ -38,5 +38,7 @@ dependencies {
     implementation(libs.exposed.r2dbc)
     implementation(libs.exposed.datetime)
     implementation(libs.kotlinx.io.core)
+    implementation(libs.aqueue)
+    implementation(libs.firebase.admin)
     runtimeOnly(libs.postgres.r2dbc)
 }

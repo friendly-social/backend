@@ -16,43 +16,60 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
 import kotlin.random.Random
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 
-suspend fun main() {
+suspend fun main(): Unit = coroutineScope {
+    val scope = this
     val port = System.getenv("FRIENDLY_PORT")?.toInt() ?: 8080
     val database = impureBootstrapDatabase()
     val files = impureBootstrapFiles()
+    val firebase = impureBootstrapFirebase()
+    val notifications = impureBootstrapNotifications()
 
-    embeddedServer(Netty, port) {
-        installStatusPages()
-        installContentNegotiation()
-        installCors()
-        installCallLogging()
+    val context = AppContext(
+        database = database,
+        random = Random,
+        clock = Clock.System,
+        files = files,
+        notifications = notifications,
+        firebase = firebase,
+        scope = scope,
+        json = Json,
+    )
 
-        routing {
-            val context = AppContext(
-                database = database,
-                routing = this,
-                random = Random,
-                clock = Clock.System,
-                files = files,
-            )
-            AuthRouting.impureGenerate(context)
-            AuthRouting.impureFirebase(context)
-            AuthRouting.impureLogout(context)
-            UsersRouting.impureDetails(context)
-            FilesRouting.impureUpload(context)
-            FilesRouting.impureDownload(context)
-            FriendsRouting.impureGenerate(context)
-            FriendsRouting.impureAdd(context)
-            FriendsRouting.impureRequest(context)
-            FriendsRouting.impureDecline(context)
-            NetworkRouting.impureDetails(context)
-            FeedRouting.impureQueue(context)
-        }
-    }.start(wait = true)
+    NotificationsService.impureSendPending(context)
+
+    withShutdownResistantOperations(
+        gracefulPeriod = 15.seconds,
+    ) {
+        embeddedServer(Netty, port) {
+            installStatusPages()
+            installContentNegotiation()
+            installCors()
+            installCallLogging()
+
+            routing {
+                val context = context.copy(routing = this)
+                AuthRouting.impureGenerate(context)
+                AuthRouting.impureFirebase(context)
+                AuthRouting.impureLogout(context)
+                UsersRouting.impureDetails(context)
+                FilesRouting.impureUpload(context)
+                FilesRouting.impureDownload(context)
+                FriendsRouting.impureGenerate(context)
+                FriendsRouting.impureAdd(context)
+                FriendsRouting.impureRequest(context)
+                FriendsRouting.impureDecline(context)
+                NetworkRouting.impureDetails(context)
+                FeedRouting.impureQueue(context)
+            }
+        }.start(wait = true)
+    }
 }
 
 private fun Application.installStatusPages() {

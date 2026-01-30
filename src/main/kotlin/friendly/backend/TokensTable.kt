@@ -1,6 +1,9 @@
 package friendly.backend
 
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
+import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -52,5 +55,27 @@ object TokensTable : Table("tokens") {
                 (ownerIdColumn eq ownerId.long),
         ).firstOrNull()
         return entry != null
+    }
+
+    suspend fun impureSelect(ownerId: UserId): List<Entry> = selectAll()
+        .where(ownerIdColumn eq ownerId.long)
+        .map { row -> row.toEntry() }
+        .toList()
+
+    suspend fun impureDeleteFirebase(token: FirebaseToken) =
+        deleteWhere { firebaseTokenColumn eq token.string }
+
+    data class Entry(
+        val ownerId: UserId,
+        val token: Token,
+        val firebaseToken: FirebaseToken? = null,
+    )
+
+    private fun ResultRow.toEntry(): Entry {
+        val ownerId = UserId(this[ownerIdColumn])
+        val token = Token.orThrow(this[tokenColumn])
+        val firebaseToken = this[firebaseTokenColumn]
+            ?.let(FirebaseToken::orThrow)
+        return Entry(ownerId, token, firebaseToken)
     }
 }
