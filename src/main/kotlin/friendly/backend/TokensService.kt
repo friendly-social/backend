@@ -38,10 +38,20 @@ object TokensService {
         authorization: Authorization,
         firebaseToken: FirebaseToken,
     ) = suspendTransaction(context.database) {
-        TokensTable.impureFirebase(
+        TokensTable.impureUpdateFirebase(
             ownerId = authorization.id,
             token = authorization.token,
             firebaseToken = firebaseToken,
+        )
+    }
+
+    suspend fun impureLogout(
+        context: AppContext,
+        authorization: Authorization,
+    ) = suspendTransaction(context.database) {
+        TokensTable.impureDelete(
+            ownerId = authorization.id,
+            token = authorization.token,
         )
     }
 }

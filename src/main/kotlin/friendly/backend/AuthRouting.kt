@@ -65,4 +65,18 @@ object AuthRouting {
             call.respond(FirebaseResponse)
         }
     }
+
+    @Serializable
+    private data object LogoutResponse
+
+    fun impureLogout(context: AppContext) {
+        context.routing.post("/auth/logout") {
+            val authorization = call.authorizationOrThrow()
+            TokensService.impureLogout(
+                context = context,
+                authorization = authorization,
+            )
+            call.respond(LogoutResponse)
+        }
+    }
 }

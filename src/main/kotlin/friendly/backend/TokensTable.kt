@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.update
@@ -24,7 +25,7 @@ object TokensTable : Table("tokens") {
         }
     }
 
-    suspend fun impureFirebase(
+    suspend fun impureUpdateFirebase(
         ownerId: UserId,
         token: Token,
         firebaseToken: FirebaseToken,
@@ -36,6 +37,12 @@ object TokensTable : Table("tokens") {
             },
         ) { statement ->
             statement[firebaseTokenColumn] = firebaseToken.string
+        }
+    }
+
+    suspend fun impureDelete(ownerId: UserId, token: Token) {
+        deleteWhere {
+            (ownerIdColumn eq ownerId.long) and (tokenColumn eq token.string)
         }
     }
 
