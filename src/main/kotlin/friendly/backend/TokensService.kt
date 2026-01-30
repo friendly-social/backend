@@ -32,4 +32,16 @@ object TokensService {
             GenerateResult(token, id, accessHash)
         }
     }
+
+    suspend fun impureFirebase(
+        context: AppContext,
+        authorization: Authorization,
+        firebaseToken: FirebaseToken,
+    ) = suspendTransaction(context.database) {
+        TokensTable.impureFirebase(
+            ownerId = authorization.id,
+            token = authorization.token,
+            firebaseToken = firebaseToken,
+        )
+    }
 }

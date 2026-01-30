@@ -44,4 +44,25 @@ object AuthRouting {
             id = id.serializable(),
             accessHash = accessHash.serializable(),
         )
+
+    @Serializable
+    private data class FirebaseBody(
+        val firebaseToken: FirebaseTokenSerializable,
+    )
+
+    @Serializable
+    private data object FirebaseResponse
+
+    fun impureFirebase(context: AppContext) {
+        context.routing.post("/auth/firebase") {
+            val authorization = call.authorizationOrThrow()
+            val body = call.receive<FirebaseBody>()
+            TokensService.impureFirebase(
+                context = context,
+                authorization = authorization,
+                firebaseToken = body.firebaseToken.typed(),
+            )
+            call.respond(FirebaseResponse)
+        }
+    }
 }

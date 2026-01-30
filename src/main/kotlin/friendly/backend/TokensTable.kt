@@ -6,10 +6,14 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.selectAll
+import org.jetbrains.exposed.v1.r2dbc.update
 
 object TokensTable : Table("tokens") {
     private val tokenColumn = varchar("token", Token.Length)
     private val ownerIdColumn = long("owner_id")
+
+    private val firebaseTokenColumn =
+        varchar("firebase_token", FirebaseToken.MaxLength).nullable()
 
     override val primaryKey = PrimaryKey(tokenColumn, ownerIdColumn)
 
@@ -17,6 +21,21 @@ object TokensTable : Table("tokens") {
         insert { statement ->
             statement[tokenColumn] = token.string
             statement[ownerIdColumn] = ownerId.long
+        }
+    }
+
+    suspend fun impureFirebase(
+        ownerId: UserId,
+        token: Token,
+        firebaseToken: FirebaseToken,
+    ) {
+        update(
+            where = {
+                (ownerIdColumn eq ownerId.long) and
+                    (tokenColumn eq token.string)
+            },
+        ) { statement ->
+            statement[firebaseTokenColumn] = firebaseToken.string
         }
     }
 

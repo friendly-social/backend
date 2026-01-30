@@ -6,9 +6,7 @@ data class InterestList private constructor(val raw: List<Interest>) {
     )
 
     companion object {
-        fun orThrow(vararg raw: Interest): InterestList {
-            return orThrow(raw.toList())
-        }
+        fun orThrow(vararg raw: Interest): InterestList = orThrow(raw.toList())
 
         fun orThrow(raw: List<Interest>): InterestList {
             require(raw.toSet().size == raw.size) {
