@@ -87,6 +87,27 @@ object FriendsService {
         }
         impureGetUser(context, userId, userAccessHash)
             ?: return RequestResult.NotFound
+        val descriptor = FriendsTable.Descriptor(authorization.id, userId)
+        val (outgoing, incoming) = suspendTransaction(context.database) {
+            FriendsTable.impureSelect(
+                descriptors = listOf(
+                    descriptor,
+                    descriptor.swap(),
+                ),
+            )
+        }
+        val shouldSendNotification = outgoing == null
+        if (shouldSendNotification) {
+            if (incoming != Decline) {
+                val isMutual = incoming == Request
+                val notification = NotificationPayload.NewRequest(
+                    toId = userId,
+                    fromId = authorization.id,
+                    isMutual = isMutual,
+                )
+                NotificationsService.impureSchedule(context, notification)
+            }
+        }
         return suspendTransaction(context.database) {
             FriendsTable.impureUpsert(
                 fromId = authorization.id,

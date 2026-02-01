@@ -8,6 +8,7 @@ slf4j = "2.0.17"
 exposed = "1.0.0"
 postgres-r2dbc = "1.0.7.RELEASE"
 aqueue = "1.0.10"
+graceful-scope = "1.0.0"
 firebase-admin = "9.7.1"
 
 [libraries]
@@ -29,8 +30,10 @@ exposed-r2dbc = { module = "org.jetbrains.exposed:exposed-r2dbc", version.ref = 
 exposed-datetime = { module = "org.jetbrains.exposed:exposed-kotlin-datetime", version.ref = "exposed" }
 
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
-aqueue = { module = "me.y9san9.aqueue:core", version.ref = "aqueue" }
 firebase-admin = { module = "com.google.firebase:firebase-admin", version.ref = "firebase-admin" }
+
+aqueue = { module = "me.y9san9.aqueue:core", version.ref = "aqueue" }
+graceful-scope = { module = "me.y9san9.graceful:graceful-scope", version.ref = "graceful-scope" }
 
 [plugins]
 

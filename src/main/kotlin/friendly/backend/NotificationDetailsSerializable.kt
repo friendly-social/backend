@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 sealed interface NotificationDetailsSerializable {
     fun typed(): NotificationDetails
 
+    @Serializable
     @SerialName("new_request")
     data class NewRequest(
         val from: UserDetailsSerializable,

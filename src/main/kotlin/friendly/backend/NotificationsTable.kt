@@ -21,26 +21,28 @@ object NotificationsTable : Table("notifications") {
 
     override val primaryKey = PrimaryKey(idColumn)
 
-    suspend fun impureInsertNewRequest(
-        toId: UserId,
-        fromId: UserId,
-        isMutual: Boolean,
-    ): Entry = insert { statement ->
-        statement[toIdColumn] = toId.long
-        statement[type] = Type.NewRequest
-        statement[newRequestFromIdColumn] = fromId.long
-        statement[newRequestIsMutualColumn] = isMutual
-    }.resultedValues!![0].toEntry()
+    suspend fun impureInsert(
+        payload: NotificationPayload,
+    ): NotificationRecord = insert { statement ->
+        statement[toIdColumn] = payload.toId.long
+        when (payload) {
+            is NewRequest -> {
+                statement[type] = Type.NewRequest
+                statement[newRequestFromIdColumn] = payload.fromId.long
+                statement[newRequestIsMutualColumn] = payload.isMutual
+            }
+        }
+    }.resultedValues!![0].toRecord()
 
-    suspend fun impureSelect(): List<Entry> = selectAll()
-        .map { row -> row.toEntry() }
+    suspend fun impureSelect(): List<NotificationRecord> = selectAll()
+        .map { row -> row.toRecord() }
         .toList()
 
     suspend fun impureDelete(id: NotificationId) {
         deleteWhere { idColumn eq id.long }
     }
 
-    private fun ResultRow.toEntry(): Entry {
+    private fun ResultRow.toRecord(): NotificationRecord {
         val id = NotificationId(this[idColumn])
         val toId = UserId(this[toIdColumn])
         return when (this[type]) {
@@ -50,23 +52,8 @@ object NotificationsTable : Table("notifications") {
                     ?: error("Invalid ResultRow")
                 val isMutual = this[newRequestIsMutualColumn]
                     ?: error("Invalid ResultRow")
-                Entry.NewRequest(id, toId, fromId, isMutual)
+                NotificationRecord.NewRequest(id, toId, fromId, isMutual)
             }
-        }
-    }
-
-    sealed interface Entry {
-        val id: NotificationId
-        val toId: UserId
-        val type: Type
-
-        data class NewRequest(
-            override val id: NotificationId,
-            override val toId: UserId,
-            val fromId: UserId,
-            val isMutual: Boolean,
-        ) : Entry {
-            override val type: Type = Type.NewRequest
         }
     }
 

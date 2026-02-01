@@ -2,7 +2,6 @@ package friendly.backend
 
 import kotlinx.coroutines.CoroutineStart.UNDISPATCHED
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
@@ -14,89 +13,66 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
  */
 object NotificationsService {
 
-    suspend fun impureSendNewRequest(
+    suspend fun impureSchedule(
         context: AppContext,
-        toId: UserId,
-        fromId: UserId,
-        isMutual: Boolean,
+        payload: NotificationPayload,
     ) {
         val notification = suspendTransaction(context.database) {
-            NotificationsTable.impureInsertNewRequest(toId, fromId, isMutual)
+            NotificationsTable.impureInsert(payload)
         }
-        impureSend(context, notification)
+        impureExecute(context, notification)
     }
 
-    /**
-     * It suspends until the retrieval of all the pending notifications and
-     * after that resumes while offloading all the work in the scope.
-     * That way we can avoid race-conditions.
-     */
-    suspend fun impureSendPending(context: AppContext) {
-        val pending = suspendTransaction(context.database) {
-            NotificationsTable.impureSelect()
-        }
-        for (notification in pending) {
-            context.scope.launch(start = UNDISPATCHED) {
-                impureSend(context, notification)
+    fun impureRestoreScheduled(context: AppContext) {
+        context.notifications.scope.launch {
+            val pending = suspendTransaction(context.database) {
+                NotificationsTable.impureSelect()
+            }
+            for (notification in pending) {
+                impureExecute(context, notification)
             }
         }
     }
 
-    private suspend fun impureSend(
-        context: AppContext,
-        notification: NotificationsTable.Entry,
-    ) {
-        context.notifications.queue.execute(notification.toId) {
-            lateinit var tokens: List<TokensTable.Entry>
-            lateinit var notificationDetails: NotificationDetails
+    fun impureExecute(context: AppContext, notification: NotificationRecord) {
+        context.notifications.scope.launch(start = UNDISPATCHED) {
             suspendTransaction(context.database) {
-                tokens = TokensTable.impureSelect(notification.toId)
-                notificationDetails = impureDetails(context, notification)
-            }
-            shutdownResistant {
-                coroutineScope {
-                    for (entry in tokens) launch {
-                        impureSendToToken(
-                            context = context,
-                            entry = entry,
-                            notification = notificationDetails,
-                        )
+                val details = impureDetails(context, notification)
+                val tokens = TokensTable.impureSelect(notification.toId)
+                context.notifications.queue.execute(notification.toId) {
+                    for (token in tokens) {
+                        launch {
+                            impureSend(context, token, details)
+                        }
                     }
                 }
             }
         }
     }
 
-    private suspend fun impureSendToToken(
+    suspend fun impureSend(
         context: AppContext,
-        entry: TokensTable.Entry,
+        token: TokensTable.Entry,
         notification: NotificationDetails,
     ) {
-        val firebaseToken = entry.firebaseToken
+        val firebaseToken = token.firebaseToken ?: return
         exponentialRetry {
-            when {
-                firebaseToken != null -> {
-                    FirebaseService.impureSend(
-                        context = context,
-                        firebaseToken = firebaseToken,
-                        notification = notification,
-                    )
-                }
-                else -> true
-            }
+            FirebaseService.impureSend(context, firebaseToken, notification)
         }
     }
 
     suspend fun impureDetails(
         context: AppContext,
-        notification: NotificationsTable.Entry,
-    ): NotificationDetails = when (notification) {
-        is NewRequest -> {
-            val ids = listOf(notification.fromId)
-            val from = UsersService
-                .impureDetails(context, ids)
-                .first() ?: error("User is required to be found")
-            NotificationDetails.NewRequest(from, notification.isMutual)
+        notification: NotificationRecord,
+    ): NotificationDetails = suspendTransaction(context.database) {
+        when (notification) {
+            is NewRequest -> {
+                val ids = listOf(notification.fromId)
+                val from = UsersService
+                    .impureDetails(context, ids)
+                    .first() ?: error("User is required to be found")
+                NotificationDetails.NewRequest(from, notification.isMutual)
+            }
         }
     }
 

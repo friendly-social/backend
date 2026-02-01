@@ -5,6 +5,7 @@ import io.ktor.serialization.ContentConvertException
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
+import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.BadRequestException
@@ -17,11 +18,17 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
+import java.lang.Thread
 import kotlin.random.Random
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.measureTime
+
+private val logger = LoggerFactory.getLogger("Friendly")
 
 suspend fun main(): Unit = coroutineScope {
     val scope = this
@@ -29,46 +36,48 @@ suspend fun main(): Unit = coroutineScope {
     val database = impureBootstrapDatabase()
     val files = impureBootstrapFiles()
     val firebase = impureBootstrapFirebase()
-    val notifications = impureBootstrapNotifications()
 
-    val context = AppContext(
-        database = database,
-        random = Random,
-        clock = Clock.System,
-        files = files,
-        notifications = notifications,
-        firebase = firebase,
-        scope = scope,
-        json = Json,
-    )
+    bootstrapNotifications { notifications ->
+        val context = AppContext(
+            database = database,
+            random = Random,
+            clock = Clock.System,
+            files = files,
+            notifications = notifications,
+            firebase = firebase,
+            scope = scope,
+            json = Json,
+        )
+        NotificationsService.impureRestoreScheduled(context)
+        val server = embeddedServer(port, context)
+        addShutdownHook(server, notifications)
+        server.start(wait = true)
+    }
+}
 
-    NotificationsService.impureSendPending(context)
+private fun embeddedServer(
+    port: Int,
+    context: AppContext,
+): EmbeddedServer<*, *> = embeddedServer(Netty, port) {
+    installStatusPages()
+    installContentNegotiation()
+    installCors()
+    installCallLogging()
 
-    withShutdownResistantOperations(
-        gracefulPeriod = 15.seconds,
-    ) {
-        embeddedServer(Netty, port) {
-            installStatusPages()
-            installContentNegotiation()
-            installCors()
-            installCallLogging()
-
-            routing {
-                val context = context.copy(routing = this)
-                AuthRouting.impureGenerate(context)
-                AuthRouting.impureFirebase(context)
-                AuthRouting.impureLogout(context)
-                UsersRouting.impureDetails(context)
-                FilesRouting.impureUpload(context)
-                FilesRouting.impureDownload(context)
-                FriendsRouting.impureGenerate(context)
-                FriendsRouting.impureAdd(context)
-                FriendsRouting.impureRequest(context)
-                FriendsRouting.impureDecline(context)
-                NetworkRouting.impureDetails(context)
-                FeedRouting.impureQueue(context)
-            }
-        }.start(wait = true)
+    routing {
+        val context = context.copy(routing = this)
+        AuthRouting.impureGenerate(context)
+        AuthRouting.impureFirebase(context)
+        AuthRouting.impureLogout(context)
+        UsersRouting.impureDetails(context)
+        FilesRouting.impureUpload(context)
+        FilesRouting.impureDownload(context)
+        FriendsRouting.impureGenerate(context)
+        FriendsRouting.impureAdd(context)
+        FriendsRouting.impureRequest(context)
+        FriendsRouting.impureDecline(context)
+        NetworkRouting.impureDetails(context)
+        FeedRouting.impureQueue(context)
     }
 }
 
@@ -119,4 +128,31 @@ private fun Application.installCallLogging() {
     install(CallLogging) {
         level = INFO
     }
+}
+
+private fun addShutdownHook(
+    server: EmbeddedServer<*, *>,
+    notifications: NotificationsContext,
+) {
+    val shutdownHook = Thread {
+        runBlocking {
+            logger.info("Shutdown hook intercepted...")
+            logger.info("Stopping ktor server...")
+            measureTime {
+                server.stop(1_000, 20_000)
+            }.let { time ->
+                println("Stopped in $time")
+            }
+            logger.info("Stopping notifications actor...")
+            measureTime {
+                notifications.scope.stop(
+                    cooldownTimeout = 30.seconds,
+                    cancellationTimeout = 30.seconds,
+                )
+            }.let { time ->
+                println("Stopped in $time")
+            }
+        }
+    }
+    Runtime.getRuntime().addShutdownHook(shutdownHook)
 }
