@@ -48,10 +48,8 @@ object FirebaseService {
         )
     }
 
-    suspend fun unregister(
-        context: AppContext,
-        firebaseToken: FirebaseToken,
-    ) = suspendTransaction(context.database) {
-        TokensTable.deleteFirebase(firebaseToken)
-    }
+    suspend fun unregister(context: AppContext, firebaseToken: FirebaseToken) =
+        suspendTransaction(context.database) {
+            TokensTable.deleteFirebase(firebaseToken)
+        }
 }

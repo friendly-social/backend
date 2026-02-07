@@ -81,4 +81,37 @@ object UsersService {
             }
         }
     }
+
+    sealed interface EditResult {
+        data object Unauthorized : EditResult
+        data object Success : EditResult
+    }
+
+    suspend fun edit(
+        context: AppContext,
+        authorization: Authorization,
+        nickname: Field<Nickname>?,
+        description: Field<UserDescription>?,
+        interests: Field<InterestList>?,
+        avatar: Field<FileDescriptor?>?,
+        socialLink: Field<SocialLink?>?,
+    ): EditResult {
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return Unauthorized }
+        return suspendTransaction(context.database) {
+            UsersTable.update(
+                id = authorization.id,
+                nickname = nickname,
+                description = description,
+                avatar = avatar,
+                socialLink = socialLink,
+            )
+            InterestsTable.delete(authorization.id)
+            if (interests != null) {
+                InterestsTable.insert(authorization.id, interests.value)
+            }
+            Success
+        }
+    }
 }

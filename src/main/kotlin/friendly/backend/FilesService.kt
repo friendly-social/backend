@@ -104,10 +104,7 @@ object FilesService {
         }
     }
 
-    private fun Source.blockingReadAtMostTo(
-        sink: RawSink,
-        bytes: Long,
-    ): Long {
+    private fun Source.blockingReadAtMostTo(sink: RawSink, bytes: Long): Long {
         require(bytes > 0)
         var remaining = bytes
         val buffer = Buffer()

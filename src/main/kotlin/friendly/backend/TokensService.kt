@@ -45,13 +45,11 @@ object TokensService {
         )
     }
 
-    suspend fun logout(
-        context: AppContext,
-        authorization: Authorization,
-    ) = suspendTransaction(context.database) {
-        TokensTable.delete(
-            ownerId = authorization.id,
-            token = authorization.token,
-        )
-    }
+    suspend fun logout(context: AppContext, authorization: Authorization) =
+        suspendTransaction(context.database) {
+            TokensTable.delete(
+                ownerId = authorization.id,
+                token = authorization.token,
+            )
+        }
 }

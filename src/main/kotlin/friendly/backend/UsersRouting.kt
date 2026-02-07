@@ -1,9 +1,12 @@
 package friendly.backend
 
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.RoutingCall
 import io.ktor.server.routing.get
+import io.ktor.server.routing.patch
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 
 object UsersRouting {
@@ -20,6 +23,37 @@ object UsersRouting {
                 is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
                 is NotFound -> call.respond(HttpStatusCode.NotFound)
                 is Success -> call.respond(result.details.serializable())
+            }
+        }
+    }
+
+    @Serializable
+    data class EditBody(
+        val nickname: FieldSerializable<NicknameSerializable>? = null,
+        val description: FieldSerializable<UserDescriptionSerializable>? = null,
+        val interests: FieldSerializable<InterestListSerializable>? = null,
+        val avatar: FieldSerializable<FileDescriptorSerializable?>? = null,
+        val socialLink: FieldSerializable<SocialLinkSerializable?>? = null,
+    )
+
+    fun edit(context: AppContext) {
+        context.routing.patch("/users/edit") {
+            val authorization = call.authorizationOrThrow()
+            val body = call.receive<EditBody>()
+            val result = with(body) {
+                UsersService.edit(
+                    context = context,
+                    authorization = authorization,
+                    nickname = nickname?.typed { value -> value.typed() },
+                    description = description?.typed { value -> value.typed() },
+                    interests = interests?.typed { value -> value.typed() },
+                    avatar = avatar?.typed { value -> value?.typed() },
+                    socialLink = socialLink?.typed { value -> value?.typed() },
+                )
+            }
+            when (result) {
+                is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                is Success -> call.respond(HttpStatusCode.OK)
             }
         }
     }

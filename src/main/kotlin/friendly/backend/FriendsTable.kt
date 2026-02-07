@@ -15,11 +15,7 @@ object FriendsTable : Table("friends") {
 
     override val primaryKey = PrimaryKey(fromIdColumn, toIdColumn)
 
-    suspend fun upsert(
-        fromId: UserId,
-        toId: UserId,
-        decision: Decision,
-    ) {
+    suspend fun upsert(fromId: UserId, toId: UserId, decision: Decision) {
         upsert { statement ->
             statement[fromIdColumn] = fromId.long
             statement[toIdColumn] = toId.long
@@ -42,20 +38,18 @@ object FriendsTable : Table("friends") {
     /**
      * Selects such users who [fromId] added as their friend.
      */
-    suspend fun selectOutgoing(fromIds: List<UserId>): List<Entry> =
-        selectAll()
-            .where(fromIdColumn inList fromIds.map(UserId::long))
-            .map { row -> row.toEntry() }
-            .toList()
+    suspend fun selectOutgoing(fromIds: List<UserId>): List<Entry> = selectAll()
+        .where(fromIdColumn inList fromIds.map(UserId::long))
+        .map { row -> row.toEntry() }
+        .toList()
 
     /**
      * Selects such users who added [fromId] as their friend.
      */
-    suspend fun selectIncoming(toIds: List<UserId>): List<Entry> =
-        selectAll()
-            .where(toIdColumn inList toIds.map(UserId::long))
-            .map { row -> row.toEntry() }
-            .toList()
+    suspend fun selectIncoming(toIds: List<UserId>): List<Entry> = selectAll()
+        .where(toIdColumn inList toIds.map(UserId::long))
+        .map { row -> row.toEntry() }
+        .toList()
 
     data class Descriptor(val fromId: UserId, val toId: UserId) {
         fun swap(): Descriptor = Descriptor(toId, fromId)

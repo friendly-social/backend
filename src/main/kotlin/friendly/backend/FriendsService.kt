@@ -161,32 +161,30 @@ object FriendsService {
         return user
     }
 
-    suspend fun list(
-        context: AppContext,
-        fromId: UserId,
-    ): List<UserDetails> = suspendTransaction(context.database) {
-        val outgoingEntries = FriendsTable
-            .selectOutgoing(listOf(fromId))
-            .asReversed()
-        val outgoingDescriptors = outgoingEntries
-            .filter { entry -> entry.decision == Request }
-            .map { entry -> entry.descriptor }
-        val incomingDescriptors = outgoingDescriptors
-            .map { descriptor -> descriptor.swap() }
-        val incomingDecisions = FriendsTable
-            .select(incomingDescriptors)
-            .iterator()
-        val mutualFriends = outgoingDescriptors
-            .filter { incomingDecisions.next() == Request }
-            .map { descriptor -> descriptor.toId }
-        val friendDetails = UsersService.details(
-            context = context,
-            ids = mutualFriends,
-        ).map { details ->
-            details ?: error(
-                "User not found, but it is unexpected since all friend ids must be existing users",
-            )
+    suspend fun list(context: AppContext, fromId: UserId): List<UserDetails> =
+        suspendTransaction(context.database) {
+            val outgoingEntries = FriendsTable
+                .selectOutgoing(listOf(fromId))
+                .asReversed()
+            val outgoingDescriptors = outgoingEntries
+                .filter { entry -> entry.decision == Request }
+                .map { entry -> entry.descriptor }
+            val incomingDescriptors = outgoingDescriptors
+                .map { descriptor -> descriptor.swap() }
+            val incomingDecisions = FriendsTable
+                .select(incomingDescriptors)
+                .iterator()
+            val mutualFriends = outgoingDescriptors
+                .filter { incomingDecisions.next() == Request }
+                .map { descriptor -> descriptor.toId }
+            val friendDetails = UsersService.details(
+                context = context,
+                ids = mutualFriends,
+            ).map { details ->
+                details ?: error(
+                    "User not found, but it is unexpected since all friend ids must be existing users",
+                )
+            }
+            friendDetails
         }
-        friendDetails
-    }
 }

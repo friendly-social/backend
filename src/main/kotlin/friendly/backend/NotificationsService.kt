@@ -13,10 +13,7 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
  */
 object NotificationsService {
 
-    suspend fun schedule(
-        context: AppContext,
-        payload: NotificationPayload,
-    ) {
+    suspend fun schedule(context: AppContext, payload: NotificationPayload) {
         val notification = suspendTransaction(context.database) {
             NotificationsTable.insert(payload)
         }

@@ -4,9 +4,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.selectAll
+import org.jetbrains.exposed.v1.r2dbc.update
 
 object UsersTable : Table("users") {
     private val idColumn = long("id").autoIncrement()
@@ -53,6 +55,34 @@ object UsersTable : Table("users") {
             .toList()
             .associateBy(Entry::id)
         return ids.map { id -> results[id] }
+    }
+
+    suspend fun update(
+        id: UserId,
+        nickname: Field<Nickname>?,
+        description: Field<UserDescription>?,
+        avatar: Field<FileDescriptor?>?,
+        socialLink: Field<SocialLink?>?,
+    ) {
+        update(
+            where = { idColumn eq id.long },
+        ) { statement ->
+            if (nickname != null) {
+                statement[nicknameColumn] = nickname.value.string
+            }
+            if (description != null) {
+                statement[descriptionColumn] = description.value.string
+            }
+            if (avatar != null) {
+                val avatarId = avatar.value?.id?.long
+                val avatarAccessHash = avatar.value?.accessHash?.string
+                statement[avatarIdColumn] = avatarId
+                statement[avatarAccessHashColumn] = avatarAccessHash
+            }
+            if (socialLink != null) {
+                statement[socialLinkColumn] = socialLink.value?.string
+            }
+        }
     }
 
     private fun ResultRow.toEntry(): Entry {

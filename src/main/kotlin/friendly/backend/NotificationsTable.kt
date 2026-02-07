@@ -21,18 +21,17 @@ object NotificationsTable : Table("notifications") {
 
     override val primaryKey = PrimaryKey(idColumn)
 
-    suspend fun insert(
-        payload: NotificationPayload,
-    ): NotificationRecord = insert { statement ->
-        statement[toIdColumn] = payload.toId.long
-        when (payload) {
-            is NewRequest -> {
-                statement[type] = Type.NewRequest
-                statement[newRequestFromIdColumn] = payload.fromId.long
-                statement[newRequestIsMutualColumn] = payload.isMutual
+    suspend fun insert(payload: NotificationPayload): NotificationRecord =
+        insert { statement ->
+            statement[toIdColumn] = payload.toId.long
+            when (payload) {
+                is NewRequest -> {
+                    statement[type] = Type.NewRequest
+                    statement[newRequestFromIdColumn] = payload.fromId.long
+                    statement[newRequestIsMutualColumn] = payload.isMutual
+                }
             }
-        }
-    }.resultedValues!![0].toRecord()
+        }.resultedValues!![0].toRecord()
 
     suspend fun select(): List<NotificationRecord> = selectAll()
         .map { row -> row.toRecord() }

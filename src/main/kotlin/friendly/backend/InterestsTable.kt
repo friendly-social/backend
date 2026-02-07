@@ -3,8 +3,10 @@ package friendly.backend
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.r2dbc.batchInsert
+import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 
 object InterestsTable : Table("interests") {
@@ -38,6 +40,10 @@ object InterestsTable : Table("interests") {
             val interests = InterestList.orThrow(interestsRaw)
             UserInterests(userId, interests)
         }
+    }
+
+    suspend fun delete(userId: UserId) {
+        deleteWhere { userIdColumn eq userId.long }
     }
 
     class Entry(val userId: UserId, val interest: Interest)
