@@ -1,6 +1,7 @@
 package friendly.backend
 
 import kotlinx.coroutines.CoroutineStart.UNDISPATCHED
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
@@ -33,16 +34,19 @@ object NotificationsService {
 
     fun execute(context: AppContext, notification: NotificationRecord) {
         context.notifications.scope.launch(start = UNDISPATCHED) {
-            suspendTransaction(context.database) {
-                val details = details(context, notification)
-                val tokens = TokensTable.select(notification.toId)
-                context.notifications.queue.execute(notification.toId) {
+            val details = details(context, notification)
+            val tokens = suspendTransaction(context.database) {
+                TokensTable.select(notification.toId)
+            }
+            context.notifications.queue.execute(notification.toId) {
+                coroutineScope {
                     for (token in tokens) {
                         launch {
                             send(context, token, details)
                         }
                     }
                 }
+                markAsSent(context, notification)
             }
         }
     }
@@ -80,6 +84,15 @@ object NotificationsService {
             currentTimeout *= 2
             currentTimeout = currentTimeout.coerceAtMost(20_000)
             delay(currentTimeout)
+        }
+    }
+
+    suspend fun markAsSent(
+        context: AppContext,
+        notification: NotificationRecord,
+    ) {
+        suspendTransaction(context.database) {
+            NotificationsTable.delete(notification.id)
         }
     }
 }
