@@ -8,14 +8,14 @@ object AuthService {
         data object Success : AuthorizeResult
     }
 
-    suspend fun impureAuthorize(
+    suspend fun authorize(
         context: AppContext,
         authorization: Authorization,
     ): AuthorizeResult {
         val token = authorization.token
         val userId = authorization.id
         return suspendTransaction(context.database) {
-            val exists = TokensTable.impureExists(token, userId)
+            val exists = TokensTable.exists(token, userId)
             if (exists) {
                 AuthorizeResult.Success
             } else {

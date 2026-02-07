@@ -32,25 +32,25 @@ object FilesTable : Table("files") {
 
     override val primaryKey = PrimaryKey(id)
 
-    suspend fun impureSelectFilesSize(ip: IpAddress): FileSize = selectAll()
+    suspend fun selectFilesSize(ip: IpAddress): FileSize = selectAll()
         .where(ownerIp eq ip.string)
         .toList()
         .sumOf { result -> result[size] ?: 0 }
         .let(FileSize::orThrow)
 
-    suspend fun impureSelectFilesSize(): FileSize = selectAll()
+    suspend fun selectFilesSize(): FileSize = selectAll()
         .toList()
         .sumOf { result -> result[size] ?: 0 }
         .let(FileSize::orThrow)
 
-    suspend fun impureInsert(): FileId {
+    suspend fun insert(): FileId {
         val long = insert { statement ->
             statement[pending] = true
         }[id]
         return FileId(long)
     }
 
-    suspend fun impureUpdate(
+    suspend fun update(
         id: FileId,
         instant: Instant,
         accessHash: FileAccessHash,
@@ -65,7 +65,7 @@ object FilesTable : Table("files") {
         }
     }
 
-    suspend fun impureSelectAccessHash(id: FileId): FileAccessHash? {
+    suspend fun selectAccessHash(id: FileId): FileAccessHash? {
         val accessHash = select(this.accessHash)
             .where(this.id eq id.long)
             .firstOrNull()

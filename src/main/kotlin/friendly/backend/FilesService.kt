@@ -16,19 +16,19 @@ object FilesService {
             UploadResult
     }
 
-    suspend fun impureUpload(
+    suspend fun upload(
         context: AppContext,
         ip: IpAddress,
         sizeMetadata: FileSize?,
         source: Source,
     ): UploadResult = suspendTransaction(context.database) {
-        val availableSize = impureGetAvailableSize(context, ip)
+        val availableSize = getAvailableSize(context, ip)
         if (sizeMetadata != null && sizeMetadata > availableSize) {
             UploadResult.InsufficentStorage
         } else {
-            val fileId = FilesTable.impureInsert()
+            val fileId = FilesTable.insert()
             val path = Path(context.files.directory, "${fileId.long}")
-            val measuredSize = impureStreamToFile(
+            val measuredSize = streamToFile(
                 context = context,
                 path = path,
                 source = source,
@@ -38,8 +38,8 @@ object FilesService {
                 UploadResult.InsufficentStorage
             } else {
                 val instant = context.clock.now()
-                val accessHash = FileAccessHash.impureRandom(context.random)
-                FilesTable.impureUpdate(
+                val accessHash = FileAccessHash.random(context.random)
+                FilesTable.update(
                     id = fileId,
                     instant = instant,
                     accessHash = accessHash,
@@ -51,33 +51,33 @@ object FilesService {
         }
     }
 
-    private suspend fun impureGetAvailableSize(
+    private suspend fun getAvailableSize(
         context: AppContext,
         ip: IpAddress,
     ): FileSize = suspendTransaction(context.database) {
-        val userOccupied = FilesTable.impureSelectFilesSize(ip)
+        val userOccupied = FilesTable.selectFilesSize(ip)
         val userAvailable = FileSize.MaxPerIp.minusOrZero(userOccupied)
 
         val maxDirectorySize = context.files.maxDirectorySize
-        val systemOccupied = FilesTable.impureSelectFilesSize()
+        val systemOccupied = FilesTable.selectFilesSize()
         val systemAvailable = maxDirectorySize.minusOrZero(systemOccupied)
 
         userAvailable.coerceAtMost(systemAvailable)
     }
 
-    private suspend fun impureStreamToFile(
+    private suspend fun streamToFile(
         context: AppContext,
         path: Path,
         source: Source,
         availableSize: FileSize,
     ): FileSize? = withContext(Dispatchers.IO) {
-        impureBlockingStreamToFile(context, path, source, availableSize)
+        blockingStreamToFile(context, path, source, availableSize)
     }
 
     /**
      * @return measured actual file size or null if it didn't fit to limits
      */
-    private fun impureBlockingStreamToFile(
+    private fun blockingStreamToFile(
         context: AppContext,
         path: Path,
         source: Source,
@@ -91,7 +91,7 @@ object FilesService {
 
         try {
             val read = source
-                .impureBlockingReadAtMostTo(sink, availableSize.bytes)
+                .blockingReadAtMostTo(sink, availableSize.bytes)
             if (source.exhausted()) {
                 return FileSize.orThrow(read)
             } else {
@@ -104,7 +104,7 @@ object FilesService {
         }
     }
 
-    private fun Source.impureBlockingReadAtMostTo(
+    private fun Source.blockingReadAtMostTo(
         sink: RawSink,
         bytes: Long,
     ): Long {
@@ -136,12 +136,12 @@ object FilesService {
         data class Success(val path: Path) : GetPathResult
     }
 
-    suspend fun impureGetPath(
+    suspend fun getPath(
         context: AppContext,
         id: FileId,
         accessHash: FileAccessHash,
     ): GetPathResult = suspendTransaction(context.database) {
-        val storedAccessHash = FilesTable.impureSelectAccessHash(id)
+        val storedAccessHash = FilesTable.selectAccessHash(id)
         if (accessHash != storedAccessHash) {
             GetPathResult.NotFound
         } else {

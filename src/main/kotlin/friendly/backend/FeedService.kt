@@ -8,25 +8,25 @@ object FeedService {
         data class Success(val details: FeedQueue) : QueueResult
     }
 
-    suspend fun impureQueue(
+    suspend fun queue(
         context: AppContext,
         authorization: Authorization,
     ): QueueResult {
         AuthService
-            .impureAuthorize(context, authorization)
+            .authorize(context, authorization)
             .onFailure { return QueueResult.Unauthorized }
         val outgoing = suspendTransaction(context.database) {
             FriendsTable
-                .impureSelectOutgoing(fromIds = listOf(authorization.id))
+                .selectOutgoing(fromIds = listOf(authorization.id))
                 .map { entry -> entry.toId }
                 .toSet()
         }
         val incoming = suspendTransaction(context.database) {
             FriendsTable
-                .impureSelectIncoming(toIds = listOf(authorization.id))
+                .selectIncoming(toIds = listOf(authorization.id))
                 .associate { entry -> entry.fromId to entry.decision }
         }
-        val network = NetworkService.impureNetworkConnections(
+        val network = NetworkService.networkConnections(
             context = context,
             fromId = authorization.id,
             maxDegrees = NetworkDegree.Four,
@@ -38,7 +38,7 @@ object FeedService {
         val extendedNetworkRaw =
             network.getOrElse(NetworkDegree.Three) { emptyList() } +
                 network.getOrElse(NetworkDegree.Four) { emptyList() }
-        val users = UsersService.impureDetails(
+        val users = UsersService.details(
             context = context,
             ids = neighboringNetworkRaw.flatMap { (_, fromId, toId) ->
                 listOf(fromId, toId)

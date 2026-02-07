@@ -12,7 +12,7 @@ data class FriendToken private constructor(val string: String) {
         val Alphabet =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.~"
 
-        fun impureRandom(random: Random): FriendToken {
+        fun random(random: Random): FriendToken {
             val string = buildString {
                 repeat(Length) {
                     append(Alphabet.random(random))

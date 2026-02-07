@@ -21,7 +21,7 @@ object NotificationsTable : Table("notifications") {
 
     override val primaryKey = PrimaryKey(idColumn)
 
-    suspend fun impureInsert(
+    suspend fun insert(
         payload: NotificationPayload,
     ): NotificationRecord = insert { statement ->
         statement[toIdColumn] = payload.toId.long
@@ -34,11 +34,11 @@ object NotificationsTable : Table("notifications") {
         }
     }.resultedValues!![0].toRecord()
 
-    suspend fun impureSelect(): List<NotificationRecord> = selectAll()
+    suspend fun select(): List<NotificationRecord> = selectAll()
         .map { row -> row.toRecord() }
         .toList()
 
-    suspend fun impureDelete(id: NotificationId) {
+    suspend fun delete(id: NotificationId) {
         deleteWhere { idColumn eq id.long }
     }
 

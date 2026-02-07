@@ -13,7 +13,7 @@ data class UserAccessHash private constructor(val string: String) {
         val Alphabet =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.~"
 
-        fun impureRandom(random: Random): UserAccessHash {
+        fun random(random: Random): UserAccessHash {
             val string = buildString {
                 repeat(Length) {
                     append(Alphabet.random(random))

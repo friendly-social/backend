@@ -21,14 +21,14 @@ object TokensTable : Table("tokens") {
 
     override val primaryKey = PrimaryKey(tokenColumn, ownerIdColumn)
 
-    suspend fun impureInsert(token: Token, ownerId: UserId) {
+    suspend fun insert(token: Token, ownerId: UserId) {
         insert { statement ->
             statement[tokenColumn] = token.string
             statement[ownerIdColumn] = ownerId.long
         }
     }
 
-    suspend fun impureUpdateFirebase(
+    suspend fun updateFirebase(
         ownerId: UserId,
         token: Token,
         firebaseToken: FirebaseToken,
@@ -43,13 +43,13 @@ object TokensTable : Table("tokens") {
         }
     }
 
-    suspend fun impureDelete(ownerId: UserId, token: Token) {
+    suspend fun delete(ownerId: UserId, token: Token) {
         deleteWhere {
             (ownerIdColumn eq ownerId.long) and (tokenColumn eq token.string)
         }
     }
 
-    suspend fun impureExists(token: Token, ownerId: UserId): Boolean {
+    suspend fun exists(token: Token, ownerId: UserId): Boolean {
         val entry = selectAll().where(
             (tokenColumn eq token.string) and
                 (ownerIdColumn eq ownerId.long),
@@ -57,12 +57,12 @@ object TokensTable : Table("tokens") {
         return entry != null
     }
 
-    suspend fun impureSelect(ownerId: UserId): List<Entry> = selectAll()
+    suspend fun select(ownerId: UserId): List<Entry> = selectAll()
         .where(ownerIdColumn eq ownerId.long)
         .map { row -> row.toEntry() }
         .toList()
 
-    suspend fun impureDeleteFirebase(token: FirebaseToken) =
+    suspend fun deleteFirebase(token: FirebaseToken) =
         deleteWhere { firebaseTokenColumn eq token.string }
 
     data class Entry(

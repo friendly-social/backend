@@ -13,7 +13,7 @@ data class FileAccessHash private constructor(val string: String) {
         val Alphabet =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.~"
 
-        fun impureRandom(random: Random): FileAccessHash {
+        fun random(random: Random): FileAccessHash {
             val string = buildString {
                 repeat(Length) {
                     // We shouldn't use that pseudorandom LoL

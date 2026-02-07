@@ -12,10 +12,10 @@ object FriendsRouting {
     @Serializable
     private data class GenerateResponse(val token: FriendTokenSerializable)
 
-    fun impureGenerate(context: AppContext) {
+    fun generate(context: AppContext) {
         context.routing.post("/friends/generate") {
             val authorization = call.authorizationOrThrow()
-            val result = FriendsService.impureGenerate(
+            val result = FriendsService.generate(
                 context = context,
                 authorization = authorization,
             )
@@ -49,11 +49,11 @@ object FriendsRouting {
         data object Success : AddResponse
     }
 
-    fun impureAdd(context: AppContext) {
+    fun add(context: AppContext) {
         context.routing.post("/friends/add") {
             val authorization = call.authorizationOrThrow()
             val body = call.receive<AddBody>()
-            val result = FriendsService.impureAdd(
+            val result = FriendsService.add(
                 context = context,
                 authorization = authorization,
                 token = body.token.typed(),
@@ -80,11 +80,11 @@ object FriendsRouting {
     @Serializable
     data object RequestResponse
 
-    fun impureRequest(context: AppContext) {
+    fun request(context: AppContext) {
         context.routing.post("/friends/request") {
             val authorization = call.authorizationOrThrow()
             val body = call.receive<RequestBody>()
-            val result = FriendsService.impureRequest(
+            val result = FriendsService.request(
                 context = context,
                 authorization = authorization,
                 userId = body.userId.typed(),
@@ -107,11 +107,11 @@ object FriendsRouting {
     @Serializable
     data object DeclineResponse
 
-    fun impureDecline(context: AppContext) {
+    fun decline(context: AppContext) {
         context.routing.post("/friends/decline") {
             val authorization = call.authorizationOrThrow()
             val body = call.receive<DeclineBody>()
-            val result = FriendsService.impureDecline(
+            val result = FriendsService.decline(
                 context = context,
                 authorization = authorization,
                 userId = body.userId.typed(),

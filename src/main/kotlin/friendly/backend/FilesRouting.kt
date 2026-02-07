@@ -21,7 +21,7 @@ object FilesRouting {
         val accessHash: FileAccessHashSerializable,
     )
 
-    fun impureUpload(context: AppContext) {
+    fun upload(context: AppContext) {
         context.routing.post("/files/upload") {
             val cloudflareBasedIP = call.request.headers["CF-Connecting-IP"]
 
@@ -61,7 +61,7 @@ object FilesRouting {
                     ?.let(FileSize::orThrow)
 
                 val result = channel.use {
-                    FilesService.impureUpload(
+                    FilesService.upload(
                         context = context,
                         ip = IpAddress.orThrow(cloudflareBasedIP),
                         sizeMetadata = sizeMetadata,
@@ -89,7 +89,7 @@ object FilesRouting {
     private fun FilesService.UploadResult.Success.serializable() =
         UploadResponse(id.serializable(), accessHash.serializable())
 
-    fun impureDownload(context: AppContext) {
+    fun download(context: AppContext) {
         context.routing.get("/files/download/{idLong}/{accessHashString}") {
             val idLong: Long by call.pathParameters
             val accessHashString: String by call.pathParameters
@@ -97,7 +97,7 @@ object FilesRouting {
             val id = FileIdSerializable(idLong)
             val accessHash = FileAccessHashSerializable(accessHashString)
 
-            val result = FilesService.impureGetPath(
+            val result = FilesService.getPath(
                 context = context,
                 id = id.typed(),
                 accessHash = accessHash.typed(),

@@ -13,14 +13,14 @@ object InterestsTable : Table("interests") {
 
     override val primaryKey = PrimaryKey(nameColumn, userIdColumn)
 
-    suspend fun impureInsert(userId: UserId, interests: InterestList) {
+    suspend fun insert(userId: UserId, interests: InterestList) {
         batchInsert(interests.raw) { (name) ->
             this[userIdColumn] = userId.long
             this[nameColumn] = name
         }
     }
 
-    suspend fun impureSelect(userIds: List<UserId>): List<UserInterests> {
+    suspend fun select(userIds: List<UserId>): List<UserInterests> {
         val entries = selectAll()
             .where(userIdColumn inList userIds.map(UserId::long))
             .map { row ->

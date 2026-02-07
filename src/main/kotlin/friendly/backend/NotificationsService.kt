@@ -13,36 +13,36 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
  */
 object NotificationsService {
 
-    suspend fun impureSchedule(
+    suspend fun schedule(
         context: AppContext,
         payload: NotificationPayload,
     ) {
         val notification = suspendTransaction(context.database) {
-            NotificationsTable.impureInsert(payload)
+            NotificationsTable.insert(payload)
         }
-        impureExecute(context, notification)
+        execute(context, notification)
     }
 
-    fun impureRestoreScheduled(context: AppContext) {
+    fun restoreScheduled(context: AppContext) {
         context.notifications.scope.launch {
             val pending = suspendTransaction(context.database) {
-                NotificationsTable.impureSelect()
+                NotificationsTable.select()
             }
             for (notification in pending) {
-                impureExecute(context, notification)
+                execute(context, notification)
             }
         }
     }
 
-    fun impureExecute(context: AppContext, notification: NotificationRecord) {
+    fun execute(context: AppContext, notification: NotificationRecord) {
         context.notifications.scope.launch(start = UNDISPATCHED) {
             suspendTransaction(context.database) {
-                val details = impureDetails(context, notification)
-                val tokens = TokensTable.impureSelect(notification.toId)
+                val details = details(context, notification)
+                val tokens = TokensTable.select(notification.toId)
                 context.notifications.queue.execute(notification.toId) {
                     for (token in tokens) {
                         launch {
-                            impureSend(context, token, details)
+                            send(context, token, details)
                         }
                     }
                 }
@@ -50,18 +50,18 @@ object NotificationsService {
         }
     }
 
-    suspend fun impureSend(
+    suspend fun send(
         context: AppContext,
         token: TokensTable.Entry,
         notification: NotificationDetails,
     ) {
         val firebaseToken = token.firebaseToken ?: return
         exponentialRetry {
-            FirebaseService.impureSend(context, firebaseToken, notification)
+            FirebaseService.send(context, firebaseToken, notification)
         }
     }
 
-    suspend fun impureDetails(
+    suspend fun details(
         context: AppContext,
         notification: NotificationRecord,
     ): NotificationDetails = suspendTransaction(context.database) {
@@ -69,7 +69,7 @@ object NotificationsService {
             is NewRequest -> {
                 val ids = listOf(notification.fromId)
                 val from = UsersService
-                    .impureDetails(context, ids)
+                    .details(context, ids)
                     .first() ?: error("User is required to be found")
                 NotificationDetails.NewRequest(from, notification.isMutual)
             }

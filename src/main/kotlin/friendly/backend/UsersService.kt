@@ -6,7 +6,7 @@ object UsersService {
 
     data class CreateResult(val id: UserId, val accessHash: UserAccessHash)
 
-    suspend fun impureCreate(
+    suspend fun create(
         context: AppContext,
         nickname: Nickname,
         description: UserDescription,
@@ -14,15 +14,15 @@ object UsersService {
         avatar: FileDescriptor?,
         socialLink: SocialLink?,
     ): CreateResult = suspendTransaction(context.database) {
-        val accessHash = UserAccessHash.impureRandom(context.random)
-        val id = UsersTable.impureInsert(
+        val accessHash = UserAccessHash.random(context.random)
+        val id = UsersTable.insert(
             accessHash = accessHash,
             nickname = nickname,
             description = description,
             avatar = avatar,
             socialLink = socialLink,
         )
-        InterestsTable.impureInsert(id, interests)
+        InterestsTable.insert(id, interests)
         CreateResult(id, accessHash)
     }
 
@@ -38,20 +38,20 @@ object UsersService {
         data class Success(val details: UserDetails) : DetailsResult
     }
 
-    suspend fun impureDetails(
+    suspend fun details(
         context: AppContext,
         authorization: Authorization,
         descriptor: DetailsDescriptor,
     ): DetailsResult {
         AuthService
-            .impureAuthorize(context, authorization)
+            .authorize(context, authorization)
             .onFailure { return DetailsResult.Unauthorized }
         val descriptorId = when (descriptor) {
             is Self -> authorization.id
             is Other -> descriptor.id
         }
         return suspendTransaction(context.database) {
-            val details = impureDetails(context, listOf(descriptorId)).first()
+            val details = details(context, listOf(descriptorId)).first()
             if (details == null) {
                 DetailsResult.NotFound
             } else {
@@ -60,13 +60,13 @@ object UsersService {
         }
     }
 
-    suspend fun impureDetails(
+    suspend fun details(
         context: AppContext,
         ids: List<UserId>,
     ): List<UserDetails?> {
         return suspendTransaction(context.database) {
-            val entries = UsersTable.impureSelect(ids)
-            val interests = InterestsTable.impureSelect(ids)
+            val entries = UsersTable.select(ids)
+            val interests = InterestsTable.select(ids)
             entries.zip(interests) { entry, interests ->
                 entry ?: return@zip null
                 UserDetails(

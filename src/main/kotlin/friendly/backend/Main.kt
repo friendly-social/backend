@@ -33,9 +33,9 @@ private val logger = LoggerFactory.getLogger("Friendly")
 suspend fun main(): Unit = coroutineScope {
     val scope = this
     val port = System.getenv("FRIENDLY_PORT")?.toInt() ?: 8080
-    val database = impureBootstrapDatabase()
-    val files = impureBootstrapFiles()
-    val firebase = impureBootstrapFirebase()
+    val database = bootstrapDatabase()
+    val files = bootstrapFiles()
+    val firebase = bootstrapFirebase()
 
     bootstrapNotifications { notifications ->
         val context = AppContext(
@@ -48,7 +48,7 @@ suspend fun main(): Unit = coroutineScope {
             scope = scope,
             json = Json,
         )
-        NotificationsService.impureRestoreScheduled(context)
+        NotificationsService.restoreScheduled(context)
         val server = embeddedServer(port, context)
         addShutdownHook(server, notifications)
         server.start(wait = true)
@@ -66,18 +66,18 @@ private fun embeddedServer(
 
     routing {
         val context = context.copy(routing = this)
-        AuthRouting.impureGenerate(context)
-        AuthRouting.impureFirebase(context)
-        AuthRouting.impureLogout(context)
-        UsersRouting.impureDetails(context)
-        FilesRouting.impureUpload(context)
-        FilesRouting.impureDownload(context)
-        FriendsRouting.impureGenerate(context)
-        FriendsRouting.impureAdd(context)
-        FriendsRouting.impureRequest(context)
-        FriendsRouting.impureDecline(context)
-        NetworkRouting.impureDetails(context)
-        FeedRouting.impureQueue(context)
+        AuthRouting.generate(context)
+        AuthRouting.firebase(context)
+        AuthRouting.logout(context)
+        UsersRouting.details(context)
+        FilesRouting.upload(context)
+        FilesRouting.download(context)
+        FriendsRouting.generate(context)
+        FriendsRouting.add(context)
+        FriendsRouting.request(context)
+        FriendsRouting.decline(context)
+        NetworkRouting.details(context)
+        FeedRouting.queue(context)
     }
 }
 

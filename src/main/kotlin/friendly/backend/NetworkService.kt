@@ -8,20 +8,20 @@ object NetworkService {
         data class Success(val details: NetworkDetails) : DetailsResult
     }
 
-    suspend fun impureDetails(
+    suspend fun details(
         context: AppContext,
         authorization: Authorization,
     ): DetailsResult {
         AuthService
-            .impureAuthorize(context, authorization)
+            .authorize(context, authorization)
             .onFailure { return DetailsResult.Unauthorized }
         val friendDetails = FriendsService
-            .impureList(context, authorization.id)
+            .list(context, authorization.id)
         val networkDetails = NetworkDetails(friendDetails)
         return DetailsResult.Success(networkDetails)
     }
 
-    suspend fun impureNetworkConnections(
+    suspend fun networkConnections(
         context: AppContext,
         fromId: UserId,
         maxDegrees: NetworkDegree,
@@ -32,11 +32,11 @@ object NetworkService {
         var frontier = listOf(fromId)
         for (degree in 1..maxDegrees.int) {
             if (frontier.isEmpty()) break
-            val outgoing = FriendsTable.impureSelectOutgoing(frontier)
+            val outgoing = FriendsTable.selectOutgoing(frontier)
             val reversed = outgoing.map { outgoing ->
                 outgoing.descriptor.swap()
             }
-            val existing = FriendsTable.impureSelect(reversed).iterator()
+            val existing = FriendsTable.select(reversed).iterator()
             val mutual = outgoing.filter { outgoing ->
                 val existing = existing.next()
                 outgoing.decision == Request && existing == Request

@@ -10,7 +10,7 @@ object TokensService {
         val accessHash: UserAccessHash,
     )
 
-    suspend fun impureGenerate(
+    suspend fun generate(
         context: AppContext,
         nickname: Nickname,
         description: UserDescription,
@@ -18,9 +18,9 @@ object TokensService {
         avatar: FileDescriptor?,
         socialLink: SocialLink?,
     ): GenerateResult {
-        val token = Token.impureRandom(context.random)
+        val token = Token.random(context.random)
         return suspendTransaction(context.database) {
-            val (id, accessHash) = UsersService.impureCreate(
+            val (id, accessHash) = UsersService.create(
                 context = context,
                 nickname = nickname,
                 description = description,
@@ -28,28 +28,28 @@ object TokensService {
                 avatar = avatar,
                 socialLink = socialLink,
             )
-            TokensTable.impureInsert(token, id)
+            TokensTable.insert(token, id)
             GenerateResult(token, id, accessHash)
         }
     }
 
-    suspend fun impureFirebase(
+    suspend fun firebase(
         context: AppContext,
         authorization: Authorization,
         firebaseToken: FirebaseToken,
     ) = suspendTransaction(context.database) {
-        TokensTable.impureUpdateFirebase(
+        TokensTable.updateFirebase(
             ownerId = authorization.id,
             token = authorization.token,
             firebaseToken = firebaseToken,
         )
     }
 
-    suspend fun impureLogout(
+    suspend fun logout(
         context: AppContext,
         authorization: Authorization,
     ) = suspendTransaction(context.database) {
-        TokensTable.impureDelete(
+        TokensTable.delete(
             ownerId = authorization.id,
             token = authorization.token,
         )

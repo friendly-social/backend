@@ -7,11 +7,11 @@ import io.ktor.server.routing.get
 import kotlinx.serialization.SerializationException
 
 object UsersRouting {
-    fun impureDetails(context: AppContext) {
+    fun details(context: AppContext) {
         context.routing.get("/users/details/{id?}/{accessHash?}") {
             val authorization = call.authorizationOrThrow()
             val descriptor = call.descriptorOrThrow()
-            val result = UsersService.impureDetails(
+            val result = UsersService.details(
                 context = context,
                 authorization = authorization,
                 descriptor = descriptor,

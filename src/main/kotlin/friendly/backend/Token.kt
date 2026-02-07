@@ -11,7 +11,7 @@ data class Token private constructor(val string: String) {
         val Alphabet =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.~"
 
-        fun impureRandom(random: Random): Token {
+        fun random(random: Random): Token {
             val string = buildString {
                 repeat(Length) {
                     append(Alphabet.random(random))

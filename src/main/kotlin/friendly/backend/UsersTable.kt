@@ -26,7 +26,7 @@ object UsersTable : Table("users") {
 
     override val primaryKey = PrimaryKey(idColumn)
 
-    suspend fun impureInsert(
+    suspend fun insert(
         accessHash: UserAccessHash,
         nickname: Nickname,
         description: UserDescription,
@@ -46,7 +46,7 @@ object UsersTable : Table("users") {
         return UserId(result[idColumn])
     }
 
-    suspend fun impureSelect(ids: List<UserId>): List<Entry?> {
+    suspend fun select(ids: List<UserId>): List<Entry?> {
         val results = selectAll()
             .where(idColumn inList ids.map(UserId::long))
             .map { row -> row.toEntry() }

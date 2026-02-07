@@ -9,21 +9,21 @@ object FriendsService {
         data class Success(val token: FriendToken) : GenerateResult
     }
 
-    suspend fun impureGenerate(
+    suspend fun generate(
         context: AppContext,
         authorization: Authorization,
     ): GenerateResult {
         AuthService
-            .impureAuthorize(context, authorization)
+            .authorize(context, authorization)
             .onFailure { return GenerateResult.Unauthorized }
         val id = authorization.id
-        val token = FriendToken.impureRandom(context.random)
+        val token = FriendToken.random(context.random)
         return suspendTransaction(context.database) {
             suspend fun clearPreviousTokens() {
-                FriendTokensTable.impureDelete(id)
+                FriendTokensTable.delete(id)
             }
             clearPreviousTokens()
-            FriendTokensTable.impureInsert(token, id)
+            FriendTokensTable.insert(token, id)
             GenerateResult.Success(token)
         }
     }
@@ -34,28 +34,28 @@ object FriendsService {
         data object Success : AddResult
     }
 
-    suspend fun impureAdd(
+    suspend fun add(
         context: AppContext,
         authorization: Authorization,
         token: FriendToken,
         userId: UserId,
     ): AddResult {
         AuthService
-            .impureAuthorize(context, authorization)
+            .authorize(context, authorization)
             .onFailure { return AddResult.Unauthorized }
         if (userId == authorization.id) {
             return Success
         }
         return suspendTransaction(context.database) {
-            val isTokenValid = FriendTokensTable.impureExists(userId, token)
+            val isTokenValid = FriendTokensTable.exists(userId, token)
             if (isTokenValid) {
-                FriendTokensTable.impureDelete(userId)
-                FriendsTable.impureUpsert(
+                FriendTokensTable.delete(userId)
+                FriendsTable.upsert(
                     fromId = authorization.id,
                     toId = userId,
                     decision = Request,
                 )
-                FriendsTable.impureUpsert(
+                FriendsTable.upsert(
                     fromId = userId,
                     toId = authorization.id,
                     decision = Request,
@@ -73,23 +73,23 @@ object FriendsService {
         data object Success : RequestResult
     }
 
-    suspend fun impureRequest(
+    suspend fun request(
         context: AppContext,
         authorization: Authorization,
         userId: UserId,
         userAccessHash: UserAccessHash,
     ): RequestResult {
         AuthService
-            .impureAuthorize(context, authorization)
+            .authorize(context, authorization)
             .onFailure { return RequestResult.Unauthorized }
         if (userId == authorization.id) {
             return Success
         }
-        impureGetUser(context, userId, userAccessHash)
+        getUser(context, userId, userAccessHash)
             ?: return RequestResult.NotFound
         val descriptor = FriendsTable.Descriptor(authorization.id, userId)
         val (outgoing, incoming) = suspendTransaction(context.database) {
-            FriendsTable.impureSelect(
+            FriendsTable.select(
                 descriptors = listOf(
                     descriptor,
                     descriptor.swap(),
@@ -105,11 +105,11 @@ object FriendsService {
                     fromId = authorization.id,
                     isMutual = isMutual,
                 )
-                NotificationsService.impureSchedule(context, notification)
+                NotificationsService.schedule(context, notification)
             }
         }
         return suspendTransaction(context.database) {
-            FriendsTable.impureUpsert(
+            FriendsTable.upsert(
                 fromId = authorization.id,
                 toId = userId,
                 decision = Request,
@@ -124,22 +124,22 @@ object FriendsService {
         data object Success : DeclineResult
     }
 
-    suspend fun impureDecline(
+    suspend fun decline(
         context: AppContext,
         authorization: Authorization,
         userId: UserId,
         userAccessHash: UserAccessHash,
     ): DeclineResult {
         AuthService
-            .impureAuthorize(context, authorization)
+            .authorize(context, authorization)
             .onFailure { return DeclineResult.Unauthorized }
         if (userId == authorization.id) {
             return Success
         }
-        impureGetUser(context, userId, userAccessHash)
+        getUser(context, userId, userAccessHash)
             ?: return DeclineResult.NotFound
         return suspendTransaction(context.database) {
-            FriendsTable.impureUpsert(
+            FriendsTable.upsert(
                 fromId = authorization.id,
                 toId = userId,
                 decision = Decline,
@@ -148,12 +148,12 @@ object FriendsService {
         }
     }
 
-    private suspend fun impureGetUser(
+    private suspend fun getUser(
         context: AppContext,
         id: UserId,
         accessHash: UserAccessHash,
     ): UserDetails? {
-        val user = UsersService.impureDetails(context, listOf(id)).first()
+        val user = UsersService.details(context, listOf(id)).first()
             ?: return null
         if (accessHash != user.accessHash) {
             return null
@@ -161,12 +161,12 @@ object FriendsService {
         return user
     }
 
-    suspend fun impureList(
+    suspend fun list(
         context: AppContext,
         fromId: UserId,
     ): List<UserDetails> = suspendTransaction(context.database) {
         val outgoingEntries = FriendsTable
-            .impureSelectOutgoing(listOf(fromId))
+            .selectOutgoing(listOf(fromId))
             .asReversed()
         val outgoingDescriptors = outgoingEntries
             .filter { entry -> entry.decision == Request }
@@ -174,12 +174,12 @@ object FriendsService {
         val incomingDescriptors = outgoingDescriptors
             .map { descriptor -> descriptor.swap() }
         val incomingDecisions = FriendsTable
-            .impureSelect(incomingDescriptors)
+            .select(incomingDescriptors)
             .iterator()
         val mutualFriends = outgoingDescriptors
             .filter { incomingDecisions.next() == Request }
             .map { descriptor -> descriptor.toId }
-        val friendDetails = UsersService.impureDetails(
+        val friendDetails = UsersService.details(
             context = context,
             ids = mutualFriends,
         ).map { details ->

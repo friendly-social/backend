@@ -14,18 +14,18 @@ object FriendTokensTable : Table("friend_tokens") {
 
     override val primaryKey = PrimaryKey(tokenColumn, ownerIdColumn)
 
-    suspend fun impureInsert(token: FriendToken, ownerId: UserId) {
+    suspend fun insert(token: FriendToken, ownerId: UserId) {
         insert { statement ->
             statement[tokenColumn] = token.string
             statement[ownerIdColumn] = ownerId.long
         }
     }
 
-    suspend fun impureDelete(ownerId: UserId) {
+    suspend fun delete(ownerId: UserId) {
         deleteWhere { ownerIdColumn eq ownerId.long }
     }
 
-    suspend fun impureExists(ownerId: UserId, token: FriendToken): Boolean {
+    suspend fun exists(ownerId: UserId, token: FriendToken): Boolean {
         val entry = selectAll()
             .where(
                 (tokenColumn eq token.string) and

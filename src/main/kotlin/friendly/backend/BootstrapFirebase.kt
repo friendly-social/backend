@@ -7,7 +7,7 @@ import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import java.io.FileInputStream
 
-fun impureBootstrapFirebase(): FirebaseContext? {
+fun bootstrapFirebase(): FirebaseContext? {
     val fileSystem = SystemFileSystem
     val googleServices = System.getenv("FRIENDLY_GOOGLE_SERVICES")
     if (googleServices == null) {

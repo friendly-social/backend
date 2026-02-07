@@ -15,7 +15,7 @@ object FriendsTable : Table("friends") {
 
     override val primaryKey = PrimaryKey(fromIdColumn, toIdColumn)
 
-    suspend fun impureUpsert(
+    suspend fun upsert(
         fromId: UserId,
         toId: UserId,
         decision: Decision,
@@ -27,7 +27,7 @@ object FriendsTable : Table("friends") {
         }
     }
 
-    suspend fun impureSelect(descriptors: List<Descriptor>): List<Decision?> {
+    suspend fun select(descriptors: List<Descriptor>): List<Decision?> {
         val pairs = descriptors.map { (fromId, toId) ->
             fromId.long to toId.long
         }
@@ -42,7 +42,7 @@ object FriendsTable : Table("friends") {
     /**
      * Selects such users who [fromId] added as their friend.
      */
-    suspend fun impureSelectOutgoing(fromIds: List<UserId>): List<Entry> =
+    suspend fun selectOutgoing(fromIds: List<UserId>): List<Entry> =
         selectAll()
             .where(fromIdColumn inList fromIds.map(UserId::long))
             .map { row -> row.toEntry() }
@@ -51,7 +51,7 @@ object FriendsTable : Table("friends") {
     /**
      * Selects such users who added [fromId] as their friend.
      */
-    suspend fun impureSelectIncoming(toIds: List<UserId>): List<Entry> =
+    suspend fun selectIncoming(toIds: List<UserId>): List<Entry> =
         selectAll()
             .where(toIdColumn inList toIds.map(UserId::long))
             .map { row -> row.toEntry() }

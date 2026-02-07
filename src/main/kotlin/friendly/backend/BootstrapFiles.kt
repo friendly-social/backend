@@ -3,7 +3,7 @@ package friendly.backend
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
-fun impureBootstrapFiles(): FilesContext {
+fun bootstrapFiles(): FilesContext {
     val directory = Path(System.getenv("FRIENDLY_FILES_DIRECTORY"))
     val maxDirectorySize = System.getenv("FRIENDLY_FILES_LIMIT")
     val fileSystem = SystemFileSystem

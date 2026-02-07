@@ -9,7 +9,7 @@ import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 object FirebaseService {
-    suspend fun impureSend(
+    suspend fun send(
         context: AppContext,
         firebaseToken: FirebaseToken,
         notification: NotificationDetails,
@@ -29,29 +29,29 @@ object FirebaseService {
         } catch (exception: FirebaseMessagingException) {
             when (exception.messagingErrorCode) {
                 UNREGISTERED -> runCatching {
-                    impureUnregister(context, firebaseToken)
+                    unregister(context, firebaseToken)
                 }.isSuccess
                 else -> false
             }
         }
     }
 
-    suspend fun impureRegister(
+    suspend fun register(
         context: AppContext,
         authorization: Authorization,
         firebaseToken: FirebaseToken,
     ) = suspendTransaction(context.database) {
-        TokensTable.impureUpdateFirebase(
+        TokensTable.updateFirebase(
             ownerId = authorization.id,
             token = authorization.token,
             firebaseToken = firebaseToken,
         )
     }
 
-    suspend fun impureUnregister(
+    suspend fun unregister(
         context: AppContext,
         firebaseToken: FirebaseToken,
     ) = suspendTransaction(context.database) {
-        TokensTable.impureDeleteFirebase(firebaseToken)
+        TokensTable.deleteFirebase(firebaseToken)
     }
 }

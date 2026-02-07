@@ -23,10 +23,10 @@ object AuthRouting {
         val accessHash: UserAccessHashSerializable,
     )
 
-    fun impureGenerate(context: AppContext) {
+    fun generate(context: AppContext) {
         context.routing.post("/auth/generate") {
             val body = call.receive<GenerateBody>()
-            val result = TokensService.impureGenerate(
+            val result = TokensService.generate(
                 context = context,
                 nickname = body.nickname.typed(),
                 description = body.description.typed(),
@@ -53,11 +53,11 @@ object AuthRouting {
     @Serializable
     data object FirebaseResponse
 
-    fun impureFirebase(context: AppContext) {
+    fun firebase(context: AppContext) {
         context.routing.post("/auth/firebase") {
             val authorization = call.authorizationOrThrow()
             val body = call.receive<FirebaseBody>()
-            TokensService.impureFirebase(
+            TokensService.firebase(
                 context = context,
                 authorization = authorization,
                 firebaseToken = body.firebaseToken.typed(),
@@ -69,10 +69,10 @@ object AuthRouting {
     @Serializable
     data object LogoutResponse
 
-    fun impureLogout(context: AppContext) {
+    fun logout(context: AppContext) {
         context.routing.post("/auth/logout") {
             val authorization = call.authorizationOrThrow()
-            TokensService.impureLogout(
+            TokensService.logout(
                 context = context,
                 authorization = authorization,
             )
