@@ -78,6 +78,9 @@ private fun embeddedServer(
         FriendsRouting.decline(context)
         NetworkRouting.details(context)
         FeedRouting.queue(context)
+        EmailRouting.link(context)
+        EmailRouting.unlink(context)
+        EmailRouting.confirm(context)
     }
 }
 
@@ -145,7 +148,7 @@ private fun addShutdownHook(
             }
             logger.info("Stopping notifications actor...")
             measureTime {
-                notifications.scope.stop(
+                notifications.gracefulScope.stop(
                     cooldownTimeout = 30.seconds,
                     cancellationTimeout = 30.seconds,
                 )

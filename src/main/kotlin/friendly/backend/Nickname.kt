@@ -8,6 +8,7 @@ data class Nickname private constructor(val string: String) {
 
         fun orThrow(string: String): Nickname {
             require(string.length <= MaxLength)
+            require(string.isNotBlank())
             return Nickname(string)
         }
     }

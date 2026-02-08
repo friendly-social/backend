@@ -9,6 +9,7 @@ data class UserDescription private constructor(val string: String) {
 
         fun orThrow(string: String): UserDescription {
             require(string.length <= MaxLength)
+            require(string.isNotBlank())
             return UserDescription(string)
         }
     }

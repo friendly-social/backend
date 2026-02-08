@@ -12,6 +12,11 @@ value class InterestSerializable(val string: String) {
                 "Interest length might not be more than ${Interest.MaxLength}, was ${string.length}",
             )
         }
+        if (string.isBlank()) {
+            throw SerializationException(
+                "Empty interests are not allowed",
+            )
+        }
     }
 
     fun typed(): Interest = Interest.orThrow(string)

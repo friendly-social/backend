@@ -8,6 +8,7 @@ data class Interest private constructor(val string: String) {
 
         fun orThrow(string: String): Interest {
             require(string.length <= MaxLength)
+            require(string.isNotBlank())
             return Interest(string)
         }
     }

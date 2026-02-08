@@ -22,7 +22,7 @@ object NotificationsService {
     }
 
     fun restoreScheduled(context: AppContext) {
-        context.notifications.scope.launch {
+        context.notifications.gracefulScope.launch {
             val pending = suspendTransaction(context.database) {
                 NotificationsTable.select()
             }
@@ -33,7 +33,7 @@ object NotificationsService {
     }
 
     fun execute(context: AppContext, notification: NotificationRecord) {
-        context.notifications.scope.launch(start = UNDISPATCHED) {
+        context.notifications.gracefulScope.launch(start = UNDISPATCHED) {
             val details = details(context, notification)
             val tokens = suspendTransaction(context.database) {
                 TokensTable.select(notification.toId)

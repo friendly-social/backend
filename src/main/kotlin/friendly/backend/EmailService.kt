@@ -1,0 +1,112 @@
+package friendly.backend
+
+import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
+
+object EmailService {
+    sealed interface LinkResult {
+        data object Unauthorized : LinkResult
+        data object EmailAlreadyUsed : LinkResult
+        data object Success : LinkResult
+    }
+
+    suspend fun link(
+        context: AppContext,
+        authorization: Authorization,
+        email: Email,
+    ): LinkResult {
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return Unauthorized }
+        return suspendTransaction(context.database) {
+            val emailOwnerId = EmailsTable.select(email)
+            if (emailOwnerId != null) {
+                if (emailOwnerId != authorization.id) {
+                    return@suspendTransaction EmailAlreadyUsed
+                } else {
+                    return@suspendTransaction Success
+                }
+            }
+            val previousEntry = ConfirmationCodesTable.select(email)
+            val now = context.clock.now()
+            if (previousEntry != null) {
+                val isPreviousCodeActive =
+                    now < previousEntry.expiration.instant
+                if (isPreviousCodeActive) {
+                    if (previousEntry.ownerId == authorization.id) {
+                        return@suspendTransaction Success
+                    } else {
+                        return@suspendTransaction EmailAlreadyUsed
+                    }
+                }
+            }
+            val ownerId = authorization.id
+            ConfirmationCodesTable.delete(ownerId)
+            // val code = ConfirmationCode.random(context.random)
+            val code = ConfirmationCode.orThrow(1111_1111)
+            val expiration = ConfirmationCodeExpiration.createdNow(now)
+            ConfirmationCodesTable.upsert(ownerId, email, code, expiration)
+            // todo: the actual email
+            Success
+        }
+    }
+
+    sealed interface ConfirmResult {
+        data object Unauthorized : ConfirmResult
+        data object InvalidCode : ConfirmResult
+        data object Success : ConfirmResult
+    }
+
+    suspend fun confirm(
+        context: AppContext,
+        authorization: Authorization,
+        code: ConfirmationCode,
+    ): ConfirmResult {
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return Unauthorized }
+        return suspendTransaction(context.database) {
+            val entry = ConfirmationCodesTable.select(authorization.id)
+            if (entry == null) {
+                return@suspendTransaction InvalidCode
+            }
+            val now = context.clock.now()
+            if (now > entry.expiration.instant) {
+                return@suspendTransaction InvalidCode
+            }
+            if (entry.attempts.int == ConfirmationCodeAttempts.Max) {
+                return@suspendTransaction InvalidCode
+            }
+            if (entry.code != code) {
+                ConfirmationCodesTable.updateAttempts(
+                    ownerId = authorization.id,
+                    attempts = entry.attempts.incrementOrThrow(),
+                )
+                return@suspendTransaction InvalidCode
+            }
+            ConfirmationCodesTable.delete(authorization.id)
+            EmailsTable.insert(
+                ownerId = authorization.id,
+                email = entry.email,
+            )
+            Success
+        }
+    }
+
+    sealed interface UnlinkResult {
+        data object Unauthorized : UnlinkResult
+        data object Success : UnlinkResult
+    }
+
+    suspend fun unlink(
+        context: AppContext,
+        authorization: Authorization,
+    ): UnlinkResult {
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return Unauthorized }
+        return suspendTransaction(context.database) {
+            EmailsTable.delete(authorization.id)
+            Success
+        }
+    }
+}

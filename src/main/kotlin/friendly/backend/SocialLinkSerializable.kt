@@ -12,6 +12,9 @@ value class SocialLinkSerializable(val string: String) {
                 "Nickname length is ${string.length}, but should be less than ${SocialLink.MaxLength}",
             )
         }
+        if (string.isBlank()) {
+            throw SerializationException("Social link cannot be blank")
+        }
     }
 
     fun typed(): SocialLink = SocialLink.orThrow(string)
