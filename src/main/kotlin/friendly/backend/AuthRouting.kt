@@ -1,5 +1,6 @@
 package friendly.backend
 
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.post
@@ -65,6 +66,59 @@ object AuthRouting {
             call.respond(FirebaseResponse)
         }
     }
+
+    @Serializable
+    private data class EmailBody(val email: EmailSerializable)
+
+    fun email(context: AppContext) {
+        context.routing.post("/auth/email") {
+            val body = call.receive<EmailBody>()
+            val email = body.email.typed()
+            val result = AuthService.email(context, email)
+            when (result) {
+                UnknownEmail -> call.respond(HttpStatusCode.Unauthorized)
+                Success -> call.respond(HttpStatusCode.OK)
+            }
+        }
+    }
+
+    @Serializable
+    private data class LoginBody(
+        val email: EmailSerializable,
+        val code: LoginCodeSerializable,
+    )
+
+    @Serializable
+    private data class LoginResponse(
+        val token: TokenSerializable,
+        val id: UserIdSerializable,
+        val accessHash: UserAccessHashSerializable,
+    )
+
+    fun login(context: AppContext) {
+        context.routing.post("/auth/login") {
+            val body = call.receive<LoginBody>()
+            val result = AuthService.login(
+                context = context,
+                email = body.email.typed(),
+                code = body.code.typed(),
+            )
+            when (result) {
+                InvalidCode -> call.respond(HttpStatusCode.Forbidden)
+                is Success -> {
+                    val response = result.toResponse()
+                    call.respond(HttpStatusCode.OK, response)
+                }
+            }
+        }
+    }
+
+    private fun AuthService.LoginResult.Success.toResponse(): LoginResponse =
+        LoginResponse(
+            token = token.serializable(),
+            id = id.serializable(),
+            accessHash = accessHash.serializable(),
+        )
 
     @Serializable
     data object LogoutResponse

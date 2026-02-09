@@ -11,8 +11,7 @@ import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.update
 
-object ConfirmationCodesTable : Table("confirmation_codes") {
-    private val ownerIdColumn = long("owner_id")
+object LoginCodesTable : Table("login_codes") {
     private val emailColumn = varchar("email", Email.MaxLength)
     private val codeColumn = integer("code")
     private val expirationColumn = timestamp("expiration")
@@ -21,13 +20,11 @@ object ConfirmationCodesTable : Table("confirmation_codes") {
     override val primaryKey = PrimaryKey(emailColumn)
 
     suspend fun insert(
-        ownerId: UserId,
         email: Email,
-        code: ConfirmationCode,
-        expiration: ConfirmationCodeExpiration,
+        code: LoginCode,
+        expiration: LoginCodeExpiration,
     ) {
         insert { statement ->
-            statement[ownerIdColumn] = ownerId.long
             statement[emailColumn] = email.string
             statement[codeColumn] = code.int
             statement[expirationColumn] = expiration.instant
@@ -39,39 +36,29 @@ object ConfirmationCodesTable : Table("confirmation_codes") {
         .map { row -> row.toEntry() }
         .firstOrNull()
 
-    suspend fun select(ownerId: UserId): Entry? = selectAll()
-        .where { (ownerIdColumn eq ownerId.long) }
-        .map { row -> row.toEntry() }
-        .firstOrNull()
-
-    suspend fun updateAttempts(
-        ownerId: UserId,
-        attempts: ConfirmationCodeAttempts,
-    ) {
+    suspend fun updateAttempts(email: Email, attempts: LoginCodeAttempts) {
         update(
-            where = { ownerIdColumn eq ownerId.long },
+            where = { emailColumn eq email.string },
         ) { statement ->
             statement[attemptsColumn] = attempts.int
         }
     }
 
-    suspend fun delete(ownerId: UserId) {
-        deleteWhere { ownerIdColumn eq ownerId.long }
+    suspend fun delete(email: Email) {
+        deleteWhere { emailColumn eq email.string }
     }
 
     data class Entry(
-        val ownerId: UserId,
         val email: Email,
-        val code: ConfirmationCode,
-        val expiration: ConfirmationCodeExpiration,
-        val attempts: ConfirmationCodeAttempts,
+        val code: LoginCode,
+        val expiration: LoginCodeExpiration,
+        val attempts: LoginCodeAttempts,
     )
 
     private fun ResultRow.toEntry(): Entry = Entry(
-        ownerId = UserId(this[ownerIdColumn]),
         email = Email.orThrow(this[emailColumn]),
-        code = ConfirmationCode.orThrow(this[codeColumn]),
-        expiration = ConfirmationCodeExpiration(this[expirationColumn]),
-        attempts = ConfirmationCodeAttempts.orThrow(this[attemptsColumn]),
+        code = LoginCode.orThrow(this[codeColumn]),
+        expiration = LoginCodeExpiration(this[expirationColumn]),
+        attempts = LoginCodeAttempts.orThrow(this[attemptsColumn]),
     )
 }

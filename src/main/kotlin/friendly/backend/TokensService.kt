@@ -45,6 +45,14 @@ object TokensService {
         )
     }
 
+    suspend fun add(context: AppContext, id: UserId): Token {
+        val token = Token.random(context.random)
+        return suspendTransaction(context.database) {
+            TokensTable.insert(token, id)
+            token
+        }
+    }
+
     suspend fun logout(context: AppContext, authorization: Authorization) =
         suspendTransaction(context.database) {
             TokensTable.delete(

@@ -68,6 +68,8 @@ private fun embeddedServer(
         val context = context.copy(routing = this)
         AuthRouting.generate(context)
         AuthRouting.firebase(context)
+        AuthRouting.email(context)
+        AuthRouting.login(context)
         AuthRouting.logout(context)
         UsersRouting.details(context)
         FilesRouting.upload(context)

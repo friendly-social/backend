@@ -27,24 +27,24 @@ object EmailService {
                 }
             }
             val previousEntry = ConfirmationCodesTable.select(email)
-            val now = context.clock.now()
             if (previousEntry != null) {
-                val isPreviousCodeActive =
-                    now < previousEntry.expiration.instant
-                if (isPreviousCodeActive) {
+                val now = context.clock.now()
+                val isCodeActive = now < previousEntry.expiration.instant
+                if (isCodeActive) {
                     if (previousEntry.ownerId == authorization.id) {
                         return@suspendTransaction Success
                     } else {
                         return@suspendTransaction EmailAlreadyUsed
                     }
                 }
+                ConfirmationCodesTable.delete(previousEntry.ownerId)
             }
             val ownerId = authorization.id
-            ConfirmationCodesTable.delete(ownerId)
             // val code = ConfirmationCode.random(context.random)
             val code = ConfirmationCode.orThrow(1111_1111)
+            val now = context.clock.now()
             val expiration = ConfirmationCodeExpiration.createdNow(now)
-            ConfirmationCodesTable.upsert(ownerId, email, code, expiration)
+            ConfirmationCodesTable.insert(ownerId, email, code, expiration)
             // todo: the actual email
             Success
         }
