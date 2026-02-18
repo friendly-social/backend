@@ -12,10 +12,16 @@ object EmailRouting {
 
     fun link(context: AppContext) {
         context.routing.post("/email/link") {
-            val authorization = call.authorizationOrThrow()
+            val authorization = call.authorization()
+            val localeCode = call.localeCode()
             val body = call.receive<LinkBody>()
             val email = body.email.typed()
-            val result = EmailService.link(context, authorization, email)
+            val result = EmailService.link(
+                context = context,
+                authorization = authorization,
+                email = email,
+                localeCode = localeCode,
+            )
             when (result) {
                 Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
                 EmailAlreadyUsed -> call.respond(HttpStatusCode.Conflict)
@@ -29,7 +35,7 @@ object EmailRouting {
 
     fun confirm(context: AppContext) {
         context.routing.post("/email/confirm") {
-            val authorization = call.authorizationOrThrow()
+            val authorization = call.authorization()
             val body = call.receive<ConfirmBody>()
             val code = body.code.typed()
             val result = EmailService.confirm(context, authorization, code)
@@ -43,7 +49,7 @@ object EmailRouting {
 
     fun unlink(context: AppContext) {
         context.routing.post("/email/unlink") {
-            val authorization = call.authorizationOrThrow()
+            val authorization = call.authorization()
             val result = EmailService.unlink(context, authorization)
             when (result) {
                 Unauthorized -> call.respond(HttpStatusCode.Unauthorized)

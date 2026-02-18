@@ -56,7 +56,7 @@ object AuthRouting {
 
     fun firebase(context: AppContext) {
         context.routing.post("/auth/firebase") {
-            val authorization = call.authorizationOrThrow()
+            val authorization = call.authorization()
             val body = call.receive<FirebaseBody>()
             TokensService.firebase(
                 context = context,
@@ -72,9 +72,10 @@ object AuthRouting {
 
     fun email(context: AppContext) {
         context.routing.post("/auth/email") {
+            val localeCode = call.localeCode()
             val body = call.receive<EmailBody>()
             val email = body.email.typed()
-            val result = AuthService.email(context, email)
+            val result = AuthService.email(context, email, localeCode)
             when (result) {
                 UnknownEmail -> call.respond(HttpStatusCode.Unauthorized)
                 Success -> call.respond(HttpStatusCode.OK)
@@ -125,7 +126,7 @@ object AuthRouting {
 
     fun logout(context: AppContext) {
         context.routing.post("/auth/logout") {
-            val authorization = call.authorizationOrThrow()
+            val authorization = call.authorization()
             TokensService.logout(
                 context = context,
                 authorization = authorization,

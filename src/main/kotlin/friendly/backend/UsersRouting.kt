@@ -12,7 +12,7 @@ import kotlinx.serialization.SerializationException
 object UsersRouting {
     fun details(context: AppContext) {
         context.routing.get("/users/details/{id?}/{accessHash?}") {
-            val authorization = call.authorizationOrThrow()
+            val authorization = call.authorization()
             val descriptor = call.descriptorOrThrow()
             val result = UsersService.details(
                 context = context,
@@ -38,7 +38,7 @@ object UsersRouting {
 
     fun edit(context: AppContext) {
         context.routing.patch("/users/edit") {
-            val authorization = call.authorizationOrThrow()
+            val authorization = call.authorization()
             val body = call.receive<EditBody>()
             val result = with(body) {
                 UsersService.edit(

@@ -24,6 +24,7 @@ class AppContext(
     firebase: FirebaseContext? = null,
     json: Json? = null,
     scope: CoroutineScope? = null,
+    smtp2go: Smtp2goContext? = null,
 ) {
     private val _database = database
     val database: R2dbcDatabase
@@ -64,6 +65,10 @@ class AppContext(
     val scope: CoroutineScope
         get() = _scope ?: error("CoroutineScope is not configured.")
 
+    private val _smtp2go = smtp2go
+    val smtp2go: Smtp2goContext
+        get() = _smtp2go ?: error("Smtp2go is not configured.")
+
     fun copy(
         database: R2dbcDatabase? = null,
         routing: Routing? = null,
@@ -74,6 +79,7 @@ class AppContext(
         firebase: FirebaseContext? = null,
         json: Json? = null,
         scope: CoroutineScope? = null,
+        smtp2go: Smtp2goContext? = null,
     ): AppContext = AppContext(
         database = database ?: _database,
         routing = routing ?: _routing,
@@ -84,5 +90,6 @@ class AppContext(
         firebase = firebase ?: _firebase,
         json = json ?: _json,
         scope = scope ?: _scope,
+        smtp2go = smtp2go ?: _smtp2go,
     )
 }

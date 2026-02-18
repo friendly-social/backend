@@ -29,7 +29,11 @@ object AuthService {
         data object Success : EmailResult
     }
 
-    suspend fun email(context: AppContext, email: Email): EmailResult {
+    suspend fun email(
+        context: AppContext,
+        email: Email,
+        localeCode: LocaleCode,
+    ): EmailResult {
         return suspendTransaction(context.database) {
             val ownerId = EmailsTable.select(email)
             if (ownerId == null) {
@@ -45,11 +49,10 @@ object AuthService {
                 LoginCodesTable.delete(email)
             }
             val now = context.clock.now()
-            // val code = LoginCode.random(context.random)
-            val code = LoginCode.orThrow(1111_1111)
+            val loginCode = LoginCode.random(context.random)
             val expiration = LoginCodeExpiration.createdNow(now)
-            LoginCodesTable.insert(email, code, expiration)
-            // todo: the actual email
+            LoginCodesTable.insert(email, loginCode, expiration)
+            AuthMailService.send(context, email, localeCode, loginCode)
             Success
         }
     }

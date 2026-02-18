@@ -37,21 +37,24 @@ suspend fun main(): Unit = coroutineScope {
     val files = bootstrapFiles()
     val firebase = bootstrapFirebase()
 
-    bootstrapNotifications { notifications ->
-        val context = AppContext(
-            database = database,
-            random = Random,
-            clock = Clock.System,
-            files = files,
-            notifications = notifications,
-            firebase = firebase,
-            scope = scope,
-            json = Json,
-        )
-        NotificationsService.restoreScheduled(context)
-        val server = embeddedServer(port, context)
-        addShutdownHook(server, notifications)
-        server.start(wait = true)
+    bootstrapSmtp2go { smtp2go ->
+        bootstrapNotifications { notifications ->
+            val context = AppContext(
+                database = database,
+                random = Random,
+                clock = Clock.System,
+                files = files,
+                notifications = notifications,
+                firebase = firebase,
+                scope = scope,
+                json = Json,
+                smtp2go = smtp2go,
+            )
+            NotificationsService.restoreScheduled(context)
+            val server = embeddedServer(port, context)
+            addShutdownHook(server, notifications, smtp2go)
+            server.start(wait = true)
+        }
     }
 }
 
@@ -139,6 +142,7 @@ private fun Application.installCallLogging() {
 private fun addShutdownHook(
     server: EmbeddedServer<*, *>,
     notifications: NotificationsContext,
+    smtp2go: Smtp2goContext,
 ) {
     val shutdownHook = Thread {
         runBlocking {
@@ -152,6 +156,15 @@ private fun addShutdownHook(
             logger.info("Stopping notifications actor...")
             measureTime {
                 notifications.gracefulScope.stop(
+                    cooldownTimeout = 30.seconds,
+                    cancellationTimeout = 30.seconds,
+                )
+            }.let { time ->
+                println("Stopped in $time")
+            }
+            logger.info("Stopping smtp2go actor...")
+            measureTime {
+                smtp2go.gracefulScope.stop(
                     cooldownTimeout = 30.seconds,
                     cancellationTimeout = 30.seconds,
                 )

@@ -13,6 +13,7 @@ object EmailService {
         context: AppContext,
         authorization: Authorization,
         email: Email,
+        localeCode: LocaleCode,
     ): LinkResult {
         AuthService
             .authorize(context, authorization)
@@ -40,12 +41,11 @@ object EmailService {
                 ConfirmationCodesTable.delete(previousEntry.ownerId)
             }
             val ownerId = authorization.id
-            // val code = ConfirmationCode.random(context.random)
-            val code = ConfirmationCode.orThrow(1111_1111)
+            val code = ConfirmationCode.random(context.random)
             val now = context.clock.now()
             val expiration = ConfirmationCodeExpiration.createdNow(now)
             ConfirmationCodesTable.insert(ownerId, email, code, expiration)
-            // todo: the actual email
+            ConfirmationMailService.send(context, email, localeCode, code)
             Success
         }
     }

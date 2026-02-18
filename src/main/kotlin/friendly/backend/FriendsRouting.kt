@@ -14,13 +14,13 @@ object FriendsRouting {
 
     fun generate(context: AppContext) {
         context.routing.post("/friends/generate") {
-            val authorization = call.authorizationOrThrow()
+            val authorization = call.authorization()
             val result = FriendsService.generate(
                 context = context,
                 authorization = authorization,
             )
             when (result) {
-                is Unauthorized -> call.respondAuthorizationInvalid()
+                is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
                 is Success -> call.respond(result.toResponse())
             }
         }
@@ -51,7 +51,7 @@ object FriendsRouting {
 
     fun add(context: AppContext) {
         context.routing.post("/friends/add") {
-            val authorization = call.authorizationOrThrow()
+            val authorization = call.authorization()
             val body = call.receive<AddBody>()
             val result = FriendsService.add(
                 context = context,
@@ -60,7 +60,7 @@ object FriendsRouting {
                 userId = body.userId.typed(),
             )
             if (result is Unauthorized) {
-                call.respondAuthorizationInvalid()
+                call.respond(HttpStatusCode.Unauthorized)
             } else {
                 val response: AddResponse = when (result) {
                     is FriendTokenExpired -> FriendTokenExpired
@@ -82,7 +82,7 @@ object FriendsRouting {
 
     fun request(context: AppContext) {
         context.routing.post("/friends/request") {
-            val authorization = call.authorizationOrThrow()
+            val authorization = call.authorization()
             val body = call.receive<RequestBody>()
             val result = FriendsService.request(
                 context = context,
@@ -91,7 +91,7 @@ object FriendsRouting {
                 userAccessHash = body.userAccessHash.typed(),
             )
             when (result) {
-                is Unauthorized -> call.respondAuthorizationInvalid()
+                is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
                 is NotFound -> call.respond(HttpStatusCode.NotFound)
                 is Success -> call.respond(RequestResponse)
             }
@@ -109,7 +109,7 @@ object FriendsRouting {
 
     fun decline(context: AppContext) {
         context.routing.post("/friends/decline") {
-            val authorization = call.authorizationOrThrow()
+            val authorization = call.authorization()
             val body = call.receive<DeclineBody>()
             val result = FriendsService.decline(
                 context = context,
@@ -118,7 +118,7 @@ object FriendsRouting {
                 userAccessHash = body.userAccessHash.typed(),
             )
             when (result) {
-                is Unauthorized -> call.respondAuthorizationInvalid()
+                is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
                 is NotFound -> call.respond(HttpStatusCode.NotFound)
                 is Success -> call.respond(DeclineResponse)
             }

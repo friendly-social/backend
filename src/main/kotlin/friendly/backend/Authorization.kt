@@ -9,7 +9,7 @@ val provideAuthorizationMessage = """
 Provide Authorization using 'X-User-Id' for userId and 'X-Token' for token
 """.trimIndent()
 
-fun RoutingCall.authorizationOrThrow(): Authorization {
+fun RoutingCall.authorization(): Authorization {
     val userId = request.headers["X-User-Id"]
         ?.toLongOrNull()
         ?.let(::UserIdSerializable)
@@ -20,8 +20,4 @@ fun RoutingCall.authorizationOrThrow(): Authorization {
         ?.typed()
         ?: throw SerializationException(provideAuthorizationMessage)
     return Authorization(userId, token)
-}
-
-suspend fun RoutingCall.respondAuthorizationInvalid() {
-    respondBadRequest(message = "Provided authorization is invalid")
 }
