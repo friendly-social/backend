@@ -64,6 +64,9 @@ object UsersTable : Table("users") {
         avatar: Field<FileDescriptor?>?,
         socialLink: Field<SocialLink?>?,
     ) {
+        if (nothingChanged(nickname, description, avatar, socialLink)) {
+            return
+        }
         update(
             where = { idColumn eq id.long },
         ) { statement ->
@@ -84,6 +87,11 @@ object UsersTable : Table("users") {
             }
         }
     }
+
+    private fun nothingChanged(vararg fields: Field<*>?): Boolean =
+        fields.all { field ->
+            field == null
+        }
 
     private fun ResultRow.toEntry(): Entry {
         val avatarId = this[avatarIdColumn]
