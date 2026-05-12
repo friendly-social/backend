@@ -51,7 +51,11 @@ object UsersService {
             is Other -> descriptor.id
         }
         return suspendTransaction(context.database) {
-            val details = details(context, listOf(descriptorId)).first()
+            val details = details(
+                context = context,
+                fromId = authorization.id,
+                ids = listOf(descriptorId),
+            ).first()
             if (details == null) {
                 DetailsResult.NotFound
             } else {
@@ -62,17 +66,20 @@ object UsersService {
 
     suspend fun details(
         context: AppContext,
+        fromId: UserId,
         ids: List<UserId>,
     ): List<UserDetails?> {
         return suspendTransaction(context.database) {
             val entries = UsersTable.select(ids)
             val interests = InterestsTable.select(ids)
+            val email = selectEmailIfOwner(fromId, ids)
             entries.zip(interests) { entry, interests ->
                 entry ?: return@zip null
                 UserDetails(
                     id = entry.id,
                     accessHash = entry.accessHash,
                     nickname = entry.nickname,
+                    email = hideEmailIfNotOwner(fromId, entry.id, email),
                     description = entry.description,
                     avatar = entry.avatar,
                     interests = interests.list,
@@ -81,6 +88,21 @@ object UsersService {
             }
         }
     }
+
+    private suspend fun selectEmailIfOwner(
+        fromId: UserId,
+        userIds: List<UserId>,
+    ): Email? = if (fromId in userIds) {
+        EmailsTable.select(listOf(fromId)).first()
+    } else {
+        null
+    }
+
+    private fun hideEmailIfNotOwner(
+        fromId: UserId,
+        id: UserId,
+        email: Email?,
+    ): Email? = if (fromId == id) email else null
 
     sealed interface EditResult {
         data object Unauthorized : EditResult

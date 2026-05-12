@@ -70,7 +70,7 @@ object NotificationsService {
             is NewRequest -> {
                 val ids = listOf(notification.fromId)
                 val from = UsersService
-                    .details(context, ids)
+                    .details(context, notification.toId, ids)
                     .first() ?: error("User is required to be found")
                 NotificationDetails.NewRequest(from, notification.isMutual)
             }

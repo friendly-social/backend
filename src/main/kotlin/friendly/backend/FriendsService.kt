@@ -85,7 +85,7 @@ object FriendsService {
         if (userId == authorization.id) {
             return Success
         }
-        getUser(context, userId, userAccessHash)
+        getUser(context, authorization, userId, userAccessHash)
             ?: return RequestResult.NotFound
         val descriptor = FriendsTable.Descriptor(authorization.id, userId)
         val (outgoing, incoming) = suspendTransaction(context.database) {
@@ -136,7 +136,7 @@ object FriendsService {
         if (userId == authorization.id) {
             return Success
         }
-        getUser(context, userId, userAccessHash)
+        getUser(context, authorization, userId, userAccessHash)
             ?: return DeclineResult.NotFound
         return suspendTransaction(context.database) {
             FriendsTable.upsert(
@@ -150,10 +150,13 @@ object FriendsService {
 
     private suspend fun getUser(
         context: AppContext,
+        authorization: Authorization,
         id: UserId,
         accessHash: UserAccessHash,
     ): UserDetails? {
-        val user = UsersService.details(context, listOf(id)).first()
+        val user = UsersService
+            .details(context, authorization.id, listOf(id))
+            .first()
             ?: return null
         if (accessHash != user.accessHash) {
             return null
@@ -179,6 +182,7 @@ object FriendsService {
                 .map { descriptor -> descriptor.toId }
             val friendDetails = UsersService.details(
                 context = context,
+                fromId = fromId,
                 ids = mutualFriends,
             ).map { details ->
                 details ?: error(

@@ -40,6 +40,7 @@ object FeedService {
                 network.getOrElse(NetworkDegree.Four) { emptyList() }
         val users = UsersService.details(
             context = context,
+            fromId = authorization.id,
             ids = neighboringNetworkRaw.flatMap { (_, fromId, toId) ->
                 listOf(fromId, toId)
             } + extendedNetworkRaw.map { (_, _, toId) -> toId },
