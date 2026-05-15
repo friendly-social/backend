@@ -127,6 +127,7 @@ private fun Application.installCors() {
     install(CORS) {
         anyHost()
         anyMethod()
+        allowHeader("X-Locale")
         allowHeader("X-Token")
         allowHeader("X-User-Id")
         allowNonSimpleContentTypes = true
