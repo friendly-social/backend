@@ -41,6 +41,7 @@ object EmailService {
                 ConfirmationCodesTable.delete(previousEntry.ownerId)
             }
             val ownerId = authorization.id
+            ConfirmationCodesTable.delete(ownerId)
             val code = ConfirmationCode.random(context.random)
             val now = context.clock.now()
             val expiration = ConfirmationCodeExpiration.createdNow(now)
@@ -84,6 +85,7 @@ object EmailService {
                 return@suspendTransaction InvalidCode
             }
             ConfirmationCodesTable.delete(authorization.id)
+            EmailsTable.delete(authorization.id)
             EmailsTable.insert(
                 ownerId = authorization.id,
                 email = entry.email,
