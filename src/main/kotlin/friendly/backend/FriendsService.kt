@@ -16,15 +16,37 @@ object FriendsService {
         AuthService
             .authorize(context, authorization)
             .onFailure { return GenerateResult.Unauthorized }
-        val id = authorization.id
-        val token = FriendToken.random(context.random)
         return suspendTransaction(context.database) {
-            suspend fun clearPreviousTokens() {
-                FriendTokensTable.delete(id)
+            val previousToken = FriendTokensTable.select(authorization.id)
+            val token = if (previousToken == null) {
+                generateForce(context, authorization.id)
+            } else {
+                previousToken
             }
-            clearPreviousTokens()
-            FriendTokensTable.insert(token, id)
             GenerateResult.Success(token)
+        }
+    }
+
+    suspend fun generateForce(
+        context: AppContext,
+        authorization: Authorization,
+    ): GenerateResult {
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return GenerateResult.Unauthorized }
+        return suspendTransaction(context.database) {
+            val token = generateForce(context, authorization.id)
+            GenerateResult.Success(token)
+        }
+    }
+
+    suspend fun generateForce(
+        context: AppContext,
+        userId: UserId,
+    ): FriendToken = suspendTransaction(context.database) {
+        FriendTokensTable.delete(userId)
+        FriendToken.random(context.random).also { token ->
+            FriendTokensTable.insert(token, userId)
         }
     }
 

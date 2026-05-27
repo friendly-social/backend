@@ -25,6 +25,12 @@ object FriendTokensTable : Table("friend_tokens") {
         deleteWhere { ownerIdColumn eq ownerId.long }
     }
 
+    suspend fun select(ownerId: UserId): FriendToken? = selectAll()
+        .where(ownerIdColumn eq ownerId.long)
+        .firstOrNull()
+        ?.get(tokenColumn)
+        ?.let(FriendToken::orThrow)
+
     suspend fun exists(ownerId: UserId, token: FriendToken): Boolean {
         val entry = selectAll()
             .where(

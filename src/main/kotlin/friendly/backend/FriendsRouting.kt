@@ -26,6 +26,20 @@ object FriendsRouting {
         }
     }
 
+    fun generateForce(context: AppContext) {
+        context.routing.post("/friends/generate/force") {
+            val authorization = call.authorization()
+            val result = FriendsService.generateForce(
+                context = context,
+                authorization = authorization,
+            )
+            when (result) {
+                is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                is Success -> call.respond(result.toResponse())
+            }
+        }
+    }
+
     @Suppress("ktlint:standard:max-line-length")
     private fun FriendsService.GenerateResult.Success.toResponse(): GenerateResponse =
         GenerateResponse(

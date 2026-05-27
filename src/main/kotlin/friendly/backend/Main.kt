@@ -79,6 +79,7 @@ private fun embeddedServer(
         FilesRouting.upload(context)
         FilesRouting.download(context)
         FriendsRouting.generate(context)
+        FriendsRouting.generateForce(context)
         FriendsRouting.add(context)
         FriendsRouting.request(context)
         FriendsRouting.decline(context)
