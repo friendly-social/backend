@@ -21,12 +21,15 @@ object FirebaseService {
             .putData("details", string)
             .setToken(firebaseToken.string)
             .build()
+        println("Trying to send ${string} to ${firebaseToken}")
         return try {
             withContext(Dispatchers.IO) {
                 messaging.send(message)
+                println("Success!")
                 true
             }
         } catch (exception: FirebaseMessagingException) {
+            println("Caught excetption $exception")
             when (exception.messagingErrorCode) {
                 UNREGISTERED -> runCatching {
                     unregister(context, firebaseToken)
