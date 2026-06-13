@@ -56,7 +56,9 @@ object UsersService {
                 fromId = authorization.id,
                 ids = listOf(descriptorId),
             ).first()
-            if (details == null) {
+            val hashInvalid = descriptor is Other &&
+                descriptor.accessHash != details?.accessHash
+            if (details == null || hashInvalid) {
                 DetailsResult.NotFound
             } else {
                 DetailsResult.Success(details)
