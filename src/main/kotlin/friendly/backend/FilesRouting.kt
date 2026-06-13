@@ -1,9 +1,11 @@
 package friendly.backend
 
 import io.ktor.http.ContentDisposition
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
 import io.ktor.server.request.receiveMultipart
+import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondPath
 import io.ktor.server.routing.get
@@ -109,6 +111,10 @@ object FilesRouting {
                 }
                 is FilesService.GetPathResult.Success -> {
                     val javaPath = Paths.get(result.path.toString())
+                    call.response.header(
+                        HttpHeaders.CacheControl,
+                        "public, max-age=31536000, immutable",
+                    )
                     call.respondPath(javaPath)
                 }
             }
