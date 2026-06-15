@@ -1,29 +1,22 @@
 package friendly.backend
 
-// import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
-// import org.jetbrains.exposed.v1.r2dbc.SchemaUtils
+import io.r2dbc.pool.ConnectionPool
+import io.r2dbc.pool.ConnectionPoolConfiguration
+import io.r2dbc.spi.ConnectionFactories
+import org.jetbrains.exposed.v1.core.vendors.PostgreSQLDialect
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
+import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabaseConfig
 
-suspend fun bootstrapDatabase(): R2dbcDatabase {
+fun bootstrapDatabase(): R2dbcDatabase {
     val url = System.getenv("FRIENDLY_DATABASE_URL")
         ?: error("Provide 'FRIENDLY_DATABASE_URL' env")
 
-    val db = R2dbcDatabase.connect(
-        url = url,
-        driver = "postgresql",
-    )
+    val factory = ConnectionFactories.get(url)
+    val config = ConnectionPoolConfiguration.builder(factory).build()
+    val pool = ConnectionPool(config)
+    val r2dbc = R2dbcDatabaseConfig.Builder().apply {
+        explicitDialect = PostgreSQLDialect()
+    }
 
-    createTables(db)
-
-    return db
-}
-
-suspend fun createTables(db: R2dbcDatabase) {
-    // suspendTransaction(db) {
-    //     SchemaUtils.create(
-    //         TokensTable,
-    //         UsersTable,
-    //         InterestsTable,
-    //     )
-    // }
+    return R2dbcDatabase.connect(pool, r2dbc)
 }

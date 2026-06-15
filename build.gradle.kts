@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.exposed.core)
     implementation(libs.exposed.r2dbc)
     implementation(libs.exposed.datetime)
+    implementation(libs.r2dbc.pool)
     implementation(libs.kotlinx.io.core)
     implementation(libs.aqueue)
     implementation(libs.graceful.scope)
