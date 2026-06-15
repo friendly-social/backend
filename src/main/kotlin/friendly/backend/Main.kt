@@ -1,5 +1,6 @@
 package friendly.backend
 
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.ContentConvertException
 import io.ktor.serialization.kotlinx.json.json
@@ -9,10 +10,16 @@ import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.BadRequestException
+import io.ktor.server.plugins.callid.CallId
+import io.ktor.server.plugins.callid.callId
+import io.ktor.server.plugins.callid.generate
 import io.ktor.server.plugins.calllogging.CallLogging
+import io.ktor.server.plugins.calllogging.processingTimeMillis
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.request.httpMethod
+import io.ktor.server.request.path
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
@@ -66,6 +73,7 @@ private fun embeddedServer(
     installContentNegotiation()
     installCors()
     installCallLogging()
+    installCallId()
 
     routing {
         val context = context.copy(routing = this)
@@ -138,6 +146,21 @@ private fun Application.installCors() {
 private fun Application.installCallLogging() {
     install(CallLogging) {
         level = INFO
+        format { call ->
+            val status = call.response.status()
+            val method = call.request.httpMethod.value
+            val id = call.callId ?: "N/A"
+            val path = call.request.path()
+            val duration = call.processingTimeMillis()
+            "$method $path -> Status: $status in ${duration}ms ($id)"
+        }
+    }
+}
+
+private fun Application.installCallId() {
+    install(CallId) {
+        generate()
+        header(HttpHeaders.XRequestId)
     }
 }
 
