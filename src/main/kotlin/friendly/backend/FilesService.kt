@@ -39,7 +39,7 @@ object FilesService {
             } else {
                 val instant = context.clock.now()
                 val accessHash = FileAccessHash.random(context.random)
-                FilesTable.update(
+                FilesTable.complete(
                     id = fileId,
                     instant = instant,
                     accessHash = accessHash,

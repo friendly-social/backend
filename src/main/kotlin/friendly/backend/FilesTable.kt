@@ -50,7 +50,7 @@ object FilesTable : Table("files") {
         return FileId(long)
     }
 
-    suspend fun update(
+    suspend fun complete(
         id: FileId,
         instant: Instant,
         accessHash: FileAccessHash,
@@ -62,6 +62,7 @@ object FilesTable : Table("files") {
             statement[this.accessHash] = accessHash.string
             statement[this.size] = size.bytes
             statement[this.ownerIp] = ownerIp.string
+            statement[pending] = false
         }
     }
 
