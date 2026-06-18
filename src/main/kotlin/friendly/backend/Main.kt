@@ -58,6 +58,7 @@ suspend fun main(): Unit = coroutineScope {
                 smtp2go = smtp2go,
             )
             NotificationsService.restoreScheduled(context)
+            FilesCleanupService.attach(context)
             val server = embeddedServer(port, context)
             addShutdownHook(server, notifications, smtp2go)
             server.start(wait = true)
