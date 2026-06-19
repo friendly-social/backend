@@ -1,10 +1,15 @@
 package friendly.backend
 
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.datetime.timestamp
+import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.select
 import org.jetbrains.exposed.v1.r2dbc.selectAll
@@ -21,32 +26,55 @@ import kotlin.time.Instant
  */
 // todo: concurrent upload as of now will overthrow limits.
 object FilesTable : Table("files") {
-    val id = long("id").autoIncrement()
-    val pending = bool("pending")
+    val idColumn = long("id").autoIncrement()
+    val pendingColumn = bool("pending")
+    val markForDeletionColumn = bool("mark_for_deletion").default(false)
 
     // required fields when pending: false
-    val timestamp = timestamp("timestamp").nullable()
-    val accessHash = varchar("access_hash", FileAccessHash.Length).nullable()
-    val size = long("size").nullable()
-    val ownerIp = varchar("owner_ip", IpAddress.MaxLength).nullable()
+    val timestampColumn = timestamp("timestamp").nullable()
+    val accessHashColumn = varchar(
+        "access_hash",
+        FileAccessHash.Length,
+    ).nullable()
+    val sizeColumn = long("size").nullable()
+    val ownerIpColumn = varchar("owner_ip", IpAddress.MaxLength).nullable()
 
-    override val primaryKey = PrimaryKey(id)
+    override val primaryKey = PrimaryKey(idColumn)
 
     suspend fun selectFilesSize(ip: IpAddress): FileSize = selectAll()
-        .where(ownerIp eq ip.string)
+        .where(ownerIpColumn eq ip.string)
         .toList()
-        .sumOf { result -> result[size] ?: 0 }
+        .sumOf { result -> result[sizeColumn] ?: 0 }
         .let(FileSize::orThrow)
 
     suspend fun selectFilesSize(): FileSize = selectAll()
         .toList()
-        .sumOf { result -> result[size] ?: 0 }
+        .sumOf { result -> result[sizeColumn] ?: 0 }
         .let(FileSize::orThrow)
+
+    suspend fun selectBefore(instant: Instant): Flow<FileId> = selectAll()
+        .where(timestampColumn less instant)
+        .map { row -> FileId(row[idColumn]) }
+
+    suspend fun selectForDeletion(): Flow<FileId> = selectAll()
+        .where(markForDeletionColumn eq true)
+        .map { row -> FileId(row[idColumn]) }
+
+    suspend fun markForDeletion(ids: List<FileId>) {
+        val rawIds = ids.map(FileId::long)
+        update({ idColumn inList rawIds }) { statement ->
+            statement[markForDeletionColumn] = true
+        }
+    }
+
+    suspend fun deleteMarked() {
+        deleteWhere { markForDeletionColumn eq true }
+    }
 
     suspend fun insert(): FileId {
         val long = insert { statement ->
-            statement[pending] = true
-        }[id]
+            statement[pendingColumn] = true
+        }[idColumn]
         return FileId(long)
     }
 
@@ -57,20 +85,20 @@ object FilesTable : Table("files") {
         size: FileSize,
         ownerIp: IpAddress,
     ) {
-        update({ this.id eq id.long }) { statement ->
-            statement[this.timestamp] = instant
-            statement[this.accessHash] = accessHash.string
-            statement[this.size] = size.bytes
-            statement[this.ownerIp] = ownerIp.string
-            statement[pending] = false
+        update({ idColumn eq id.long }) { statement ->
+            statement[timestampColumn] = instant
+            statement[accessHashColumn] = accessHash.string
+            statement[sizeColumn] = size.bytes
+            statement[ownerIpColumn] = ownerIp.string
+            statement[pendingColumn] = false
         }
     }
 
     suspend fun selectAccessHash(id: FileId): FileAccessHash? {
-        val accessHash = select(this.accessHash)
-            .where(this.id eq id.long)
+        val accessHash = select(accessHashColumn)
+            .where(idColumn eq id.long)
             .firstOrNull()
-            ?.get(this.accessHash)
+            ?.get(accessHashColumn)
             ?: return null
         return FileAccessHash.orThrow(accessHash)
     }

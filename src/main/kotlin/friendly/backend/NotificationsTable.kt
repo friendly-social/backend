@@ -11,7 +11,7 @@ import org.jetbrains.exposed.v1.r2dbc.selectAll
 
 object NotificationsTable : Table("notifications") {
     private val idColumn = long("id").autoIncrement()
-    private val type = enumeration<Type>("type")
+    private val typeColumn = enumeration<Type>("type")
     private val toIdColumn = long("to_id")
 
     private val newRequestFromIdColumn =
@@ -26,7 +26,7 @@ object NotificationsTable : Table("notifications") {
             statement[toIdColumn] = payload.toId.long
             when (payload) {
                 is NewRequest -> {
-                    statement[type] = Type.NewRequest
+                    statement[typeColumn] = Type.NewRequest
                     statement[newRequestFromIdColumn] = payload.fromId.long
                     statement[newRequestIsMutualColumn] = payload.isMutual
                 }
@@ -44,7 +44,7 @@ object NotificationsTable : Table("notifications") {
     private fun ResultRow.toRecord(): NotificationRecord {
         val id = NotificationId(this[idColumn])
         val toId = UserId(this[toIdColumn])
-        return when (this[type]) {
+        return when (this[typeColumn]) {
             NewRequest -> {
                 val fromId = this[newRequestFromIdColumn]
                     ?.let(::UserId)

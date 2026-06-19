@@ -2,6 +2,7 @@ package friendly.backend
 
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
+import kotlin.time.Duration.Companion.days
 
 fun bootstrapFiles(): FilesContext {
     val directory = Path(System.getenv("FRIENDLY_FILES_DIRECTORY"))
@@ -15,5 +16,7 @@ fun bootstrapFiles(): FilesContext {
         directory = resolvedDirectory,
         maxDirectorySize = FileSize.orThrow(maxDirectorySize.toLong()),
         fileSystem = fileSystem,
+        cleanupInterval = 1.days,
+        cleanupDelay = 7.days,
     )
 }

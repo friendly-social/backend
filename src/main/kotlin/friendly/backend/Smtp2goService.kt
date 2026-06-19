@@ -15,7 +15,6 @@ object Smtp2goService {
      * but if something goes wrong, it will not report a failure. And that is a
      * deliberate design choice for now, since it's easier to implement.
      */
-    // todo: do that as a worker thing
     fun send(
         context: AppContext,
         to: List<Email>,

@@ -2,11 +2,13 @@ package friendly.backend
 
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.toSet
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.r2dbc.insert
+import org.jetbrains.exposed.v1.r2dbc.select
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.update
 
@@ -27,6 +29,14 @@ object UsersTable : Table("users") {
         varchar("avatar_access_hash", FileAccessHash.Length).nullable()
 
     override val primaryKey = PrimaryKey(idColumn)
+
+    suspend fun usedAsAvatars(ids: Set<FileId>): Set<FileId> {
+        val rawIds = ids.map(FileId::long)
+        return select(avatarIdColumn)
+            .where(avatarIdColumn inList rawIds)
+            .map { row -> FileId(row[avatarIdColumn]!!) }
+            .toSet()
+    }
 
     suspend fun insert(
         accessHash: UserAccessHash,
