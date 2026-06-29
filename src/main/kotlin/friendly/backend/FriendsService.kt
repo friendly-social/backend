@@ -68,6 +68,9 @@ object FriendsService {
         if (userId == authorization.id) {
             return Success
         }
+        if (addViaPermanentLink(context, authorization, token, userId)) {
+            return Success
+        }
         return suspendTransaction(context.database) {
             val isTokenValid = FriendTokensTable.exists(userId, token)
             if (isTokenValid) {
@@ -82,11 +85,39 @@ object FriendsService {
                     toId = authorization.id,
                     decision = Request,
                 )
-                AddResult.Success
+                Success
             } else {
-                AddResult.FriendTokenExpired
+                FriendTokenExpired
             }
         }
+    }
+
+    suspend fun addViaPermanentLink(
+        context: AppContext,
+        authorization: Authorization,
+        token: FriendToken,
+        userId: UserId,
+    ): Boolean {
+        val linkExists = PermanentLinks.Entries
+            .any { (permanentToken, permanentUserId) ->
+                permanentToken == token && permanentUserId == userId
+            }
+        if (!linkExists) {
+            return false
+        }
+        suspendTransaction(context.database) {
+            FriendsTable.upsert(
+                fromId = authorization.id,
+                toId = userId,
+                decision = Request,
+            )
+            FriendsTable.upsert(
+                fromId = userId,
+                toId = authorization.id,
+                decision = Request,
+            )
+        }
+        return true
     }
 
     sealed interface RequestResult {
