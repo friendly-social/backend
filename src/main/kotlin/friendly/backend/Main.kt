@@ -97,6 +97,8 @@ private fun embeddedServer(
         EmailRouting.link(context)
         EmailRouting.unlink(context)
         EmailRouting.confirm(context)
+        CommunityRouting.post(context)
+        CommunityRouting.list(context)
     }
 }
 
