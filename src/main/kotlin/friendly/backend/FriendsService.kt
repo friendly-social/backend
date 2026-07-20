@@ -217,7 +217,21 @@ object FriendsService {
         return user
     }
 
-    suspend fun list(context: AppContext, fromId: UserId): List<UserDetails> =
+    suspend fun list(context: AppContext, fromId: UserId): List<UserDetails> {
+        val friendIds = listIds(context, fromId)
+        val friendDetails = UsersService.details(
+            context = context,
+            fromId = fromId,
+            ids = friendIds,
+        ).map { details ->
+            details ?: error(
+                "User not found, but it is unexpected since all friend ids must be existing users",
+            )
+        }
+        return friendDetails
+    }
+
+    suspend fun listIds(context: AppContext, fromId: UserId): List<UserId> =
         suspendTransaction(context.database) {
             val outgoingEntries = FriendsTable
                 .selectOutgoing(listOf(fromId))
@@ -233,15 +247,6 @@ object FriendsService {
             val mutualFriends = outgoingDescriptors
                 .filter { incomingDecisions.next() == Request }
                 .map { descriptor -> descriptor.toId }
-            val friendDetails = UsersService.details(
-                context = context,
-                fromId = fromId,
-                ids = mutualFriends,
-            ).map { details ->
-                details ?: error(
-                    "User not found, but it is unexpected since all friend ids must be existing users",
-                )
-            }
-            friendDetails
+            mutualFriends
         }
 }
