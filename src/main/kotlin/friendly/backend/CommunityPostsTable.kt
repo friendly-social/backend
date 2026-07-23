@@ -3,7 +3,9 @@ package friendly.backend
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.selectAll
@@ -29,10 +31,18 @@ object CommunityPostsTable : Table("community_posts") {
         }
     }
 
-    suspend fun select(ids: List<UserId>): List<Entry> {
+    suspend fun select(
+        ids: List<UserId>,
+        before: CommunityPostId?,
+    ): List<Entry> {
         val rawIds = ids.map(UserId::long)
         return selectAll()
-            .where { ownerIdColumn inList rawIds }
+            .where {
+                (ownerIdColumn inList rawIds) and
+                    (idColumn less (before?.long ?: Long.MAX_VALUE))
+            }
+            .orderBy(idColumn, DESC)
+            .limit(1024)
             .toList()
             .map { row ->
                 Entry(
