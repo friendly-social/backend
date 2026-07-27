@@ -27,17 +27,17 @@ object CommunityRouting {
         }
     }
 
-    // todo: pagination support
     fun list(context: AppContext) {
-        context.routing.get("/community/list") {
+        context.routing.get("/community/list/{cursorId?}") {
             val authorization = call.authorization()
-            val result = CommunityService.list(context, authorization)
+            val cursorId = call.cursorIdOrNull("cursorId")
+            val result = CommunityService.list(context, authorization, cursorId)
             when (result) {
                 is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                is CursorInvalid -> call.respond(HttpStatusCode.BadRequest)
                 is Success -> {
-                    val response = result.list.map { post ->
-                        post.serializable()
-                    }
+                    val response = result.cursor
+                        .serializable { post -> post.serializable() }
                     call.respond(response)
                 }
             }

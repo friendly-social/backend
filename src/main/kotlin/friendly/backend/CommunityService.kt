@@ -8,7 +8,6 @@ object CommunityService {
         data object Success : PostResult
     }
 
-    // todo: no rate limits
     suspend fun post(
         context: AppContext,
         authorization: Authorization,
@@ -30,30 +29,40 @@ object CommunityService {
 
     sealed interface ListResult {
         data object Unauthorized : ListResult
-        data class Success(val list: List<CommunityPost>) : ListResult
+        data object CursorInvalid : ListResult
+        data class Success(val cursor: Cursor<CommunityPost>) : ListResult
     }
 
     suspend fun list(
         context: AppContext,
         authorization: Authorization,
+        cursorId: CursorId?,
     ): ListResult {
+        val before = cursorId?.toCommunityPostId { return CursorInvalid }
         AuthService
             .authorize(context, authorization)
             .onFailure { return Unauthorized }
-        val friends = FriendsService.list(context, authorization.id)
-        val friendIds = friends.map { friend -> friend.id }
+        val friends = FriendsService.listIds(context, authorization.id)
+        val ids = friends + authorization.id
+        val users = UsersService.detailsOrThrow(
+            context = context,
+            fromId = authorization.id,
+            ids = ids,
+        )
         val posts = suspendTransaction(context.database) {
             CommunityPostsTable
-                .select(friendIds)
-                .zip(friends) { (id, _, text, instant), friend ->
+                .select(ids, before)
+                .zip(users) { (id, _, text, instant), user ->
                     CommunityPost(
                         id = id,
                         text = text,
-                        owner = friend,
+                        owner = user,
                         instant = instant,
                     )
                 }
         }
-        return ListResult.Success(posts)
+        val nextId = posts.lastOrNull()?.id?.toCursorId()
+        val cursor = Cursor(posts, nextId)
+        return ListResult.Success(cursor)
     }
 }

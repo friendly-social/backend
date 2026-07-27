@@ -66,6 +66,14 @@ object UsersService {
         }
     }
 
+    suspend fun detailsOrThrow(
+        context: AppContext,
+        fromId: UserId,
+        ids: List<UserId>,
+    ): List<UserDetails> = details(context, fromId, ids).mapIndexed { i, user ->
+        user ?: error("User with id ${ids[i]} has not been found")
+    }
+
     suspend fun details(
         context: AppContext,
         fromId: UserId,
