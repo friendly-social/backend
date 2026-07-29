@@ -31,18 +31,21 @@ object CommunityPostsTable : Table("community_posts") {
         }
     }
 
+    data class SelectResult(val entries: List<Entry>, val hasNext: Boolean)
+
     suspend fun select(
         ids: List<UserId>,
         before: CommunityPostId?,
-    ): List<Entry> {
+        limit: Int,
+    ): SelectResult {
         val rawIds = ids.map(UserId::long)
-        return selectAll()
+        val entries = selectAll()
             .where {
                 (ownerIdColumn inList rawIds) and
                     (idColumn less (before?.long ?: Long.MAX_VALUE))
             }
             .orderBy(idColumn, DESC)
-            .limit(1024)
+            .limit(limit + 1)
             .toList()
             .map { row ->
                 Entry(
@@ -52,6 +55,11 @@ object CommunityPostsTable : Table("community_posts") {
                     instant = row[instantColumn],
                 )
             }
+        val hasNext = entries.size == limit + 1
+        return SelectResult(
+            entries = entries.dropLast(n = if (hasNext) 1 else 0),
+            hasNext = hasNext,
+        )
     }
 
     data class Entry(
