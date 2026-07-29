@@ -44,25 +44,27 @@ object CommunityService {
             .onFailure { return Unauthorized }
         val friends = FriendsService.listIds(context, authorization.id)
         val ids = friends + authorization.id
+        val (postRecords, hasNext) = suspendTransaction(context.database) {
+            CommunityPostsTable.select(ids, before, limit = 1000)
+        }
         val users = UsersService.detailsOrThrow(
             context = context,
             fromId = authorization.id,
-            ids = ids,
+            ids = postRecords.map { record -> record.ownerId },
         )
-        val posts = suspendTransaction(context.database) {
-            CommunityPostsTable
-                .select(ids, before)
-                .zip(users) { (id, _, text, instant), user ->
-                    CommunityPost(
-                        id = id,
-                        text = text,
-                        owner = user,
-                        instant = instant,
-                    )
-                }
+        val posts = postRecords.zip(users) { (id, _, text, instant), user ->
+            CommunityPost(
+                id = id,
+                text = text,
+                owner = user,
+                instant = instant,
+            )
         }
         val nextId = posts.lastOrNull()?.id?.toCursorId()
-        val cursor = Cursor(posts, nextId)
+        val cursor = Cursor(
+            data = posts,
+            nextId = nextId.takeIf { hasNext },
+        )
         return ListResult.Success(cursor)
     }
 }
