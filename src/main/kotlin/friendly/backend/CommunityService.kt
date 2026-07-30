@@ -52,13 +52,8 @@ object CommunityService {
             fromId = authorization.id,
             ids = postRecords.map { record -> record.ownerId },
         )
-        val posts = postRecords.zip(users) { (id, _, text, instant), user ->
-            CommunityPost(
-                id = id,
-                text = text,
-                owner = user,
-                instant = instant,
-            )
+        val posts = postRecords.zip(users) { record, owner ->
+            record.toPost(owner)
         }
         val nextId = posts.lastOrNull()?.id?.toCursorId()
         val cursor = Cursor(
@@ -67,4 +62,60 @@ object CommunityService {
         )
         return ListResult.Success(cursor)
     }
+
+    sealed interface DeleteResult {
+        data object Unauthorized : DeleteResult
+        data object NotFound : DeleteResult
+        data object Success : DeleteResult
+    }
+
+    suspend fun delete(
+        context: AppContext,
+        authorization: Authorization,
+        id: CommunityPostId,
+    ): DeleteResult {
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return Unauthorized }
+        val exists = suspendTransaction(context.database) {
+            CommunityPostsTable.delete(id)
+        }
+        if (!exists) {
+            return NotFound
+        }
+        return Success
+    }
+
+    sealed interface EditResult {
+        data object Unauthorized : EditResult
+        data object NotFound : EditResult
+        data object Success : EditResult
+    }
+
+    suspend fun edit(
+        context: AppContext,
+        authorization: Authorization,
+        id: CommunityPostId,
+        text: Field<CommunityPostText>?,
+    ): EditResult {
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return Unauthorized }
+        val exists = suspendTransaction(context.database) {
+            CommunityPostsTable.update(id, text)
+        }
+        if (!exists) {
+            return NotFound
+        }
+        return Success
+    }
+
+    fun CommunityPostsTable.Entry.toPost(owner: UserDetails): CommunityPost =
+        CommunityPost(
+            id = id,
+            text = text,
+            owner = owner,
+            instant = instant,
+            edited = edited,
+        )
 }
