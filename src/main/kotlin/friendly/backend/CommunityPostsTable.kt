@@ -4,17 +4,21 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.datetime.timestamp
+import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.selectAll
+import org.jetbrains.exposed.v1.r2dbc.update
 import kotlin.time.Instant
 
 object CommunityPostsTable : Table("community_posts") {
     private val idColumn = long("id").autoIncrement()
     private val ownerIdColumn = long("owner_id")
     private val textColumn = varchar("text", CommunityPostText.MaxLength)
+    private val editedColumn = bool("edited").default(false)
     private val instantColumn = timestamp("instant")
 
     override val primaryKey = PrimaryKey(idColumn)
@@ -53,6 +57,7 @@ object CommunityPostsTable : Table("community_posts") {
                     ownerId = UserId(row[ownerIdColumn]),
                     text = CommunityPostText.orThrow(row[textColumn]),
                     instant = row[instantColumn],
+                    edited = row[editedColumn],
                 )
             }
         val hasNext = entries.size == limit + 1
@@ -62,10 +67,35 @@ object CommunityPostsTable : Table("community_posts") {
         )
     }
 
+    suspend fun delete(id: CommunityPostId): Boolean = deleteWhere {
+        idColumn eq id.long
+    } > 0
+
+    suspend fun update(
+        id: CommunityPostId,
+        text: Field<CommunityPostText>?,
+    ): Boolean {
+        if (nothingChanged(text)) {
+            return true
+        }
+        return update({ idColumn eq id.long }) { statement ->
+            if (text != null) {
+                statement[textColumn] = text.value.string
+            }
+            statement[editedColumn] = true
+        } > 0
+    }
+
+    private fun nothingChanged(vararg fields: Field<*>?): Boolean =
+        fields.all { field ->
+            field == null
+        }
+
     data class Entry(
         val id: CommunityPostId,
         val ownerId: UserId,
         val text: CommunityPostText,
         val instant: Instant,
+        val edited: Boolean,
     )
 }

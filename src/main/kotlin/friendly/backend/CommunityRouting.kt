@@ -43,4 +43,45 @@ object CommunityRouting {
             }
         }
     }
+
+    @Serializable
+    data class EditBody(
+        val text: FieldSerializable<CommunityPostTextSerializable>?,
+    )
+
+    fun edit(context: AppContext) {
+        context.routing.post("/community/{id}/edit") {
+            val authorization = call.authorization()
+            val id = call.postId("id")
+            val body = call.receive<EditBody>()
+            val result = CommunityService.edit(
+                context = context,
+                authorization = authorization,
+                id = id,
+                text = body.text?.typed { value -> value.typed() },
+            )
+            when (result) {
+                Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                NotFound -> call.respond(HttpStatusCode.NotFound)
+                Success -> call.respond(HttpStatusCode.OK)
+            }
+        }
+    }
+
+    fun delete(context: AppContext) {
+        context.routing.post("/community/{id}/delete") {
+            val authorization = call.authorization()
+            val id = call.postId("id")
+            val result = CommunityService.delete(
+                context = context,
+                authorization = authorization,
+                id = id,
+            )
+            when (result) {
+                Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                NotFound -> call.respond(HttpStatusCode.NotFound)
+                Success -> call.respond(HttpStatusCode.OK)
+            }
+        }
+    }
 }
