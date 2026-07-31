@@ -5,26 +5,78 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 object CommunityService {
     sealed interface PostResult {
         data object Unauthorized : PostResult
-        data object Success : PostResult
+        data object NotFound : PostResult
+        data class Success(val descriptor: CommunityPostDescriptor) : PostResult
     }
 
     suspend fun post(
         context: AppContext,
         authorization: Authorization,
         text: CommunityPostText,
+        replyTo: CommunityPostDescriptor?,
     ): PostResult {
         AuthService
             .authorize(context, authorization)
             .onFailure { return Unauthorized }
+        if (replyTo != null) {
+            val noPost = suspendTransaction(context.database) {
+                !CommunityPostsTable.exists(replyTo)
+            }
+            if (noPost) return NotFound
+        }
         val now = context.clock.now()
-        suspendTransaction(context.database) {
+        val accessHash = CommunityPostAccessHash.random(context.random)
+        val id = suspendTransaction(context.database) {
             CommunityPostsTable.insert(
+                accessHash = accessHash,
                 ownerId = authorization.id,
                 text = text,
                 instant = now,
+                replyTo = replyTo?.id,
             )
         }
-        return Success
+        val descriptor = CommunityPostDescriptor(id, accessHash)
+        return PostResult.Success(descriptor)
+    }
+
+    sealed interface RepliesResult {
+        data object Unauthorized : RepliesResult
+        data object CursorInvalid : RepliesResult
+        data object NotFound : RepliesResult
+        data class Success(val cursor: Cursor<CommunityPost>) : RepliesResult
+    }
+
+    suspend fun replies(
+        context: AppContext,
+        authorization: Authorization,
+        replyTo: CommunityPostDescriptor,
+        cursorId: CursorId?,
+    ): RepliesResult {
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return Unauthorized }
+        val before = cursorId?.toCommunityPostId { return CursorInvalid }
+        val noPost = suspendTransaction(context.database) {
+            !CommunityPostsTable.exists(replyTo)
+        }
+        if (noPost) return NotFound
+        val (postRecords, hasNext) = suspendTransaction(context.database) {
+            CommunityPostsTable.select(replyTo.id, before, limit = 1000)
+        }
+        val users = UsersService.detailsOrThrow(
+            context = context,
+            fromId = authorization.id,
+            ids = postRecords.map { record -> record.ownerId },
+        )
+        val posts = postRecords.zip(users) { record, owner ->
+            record.toPost(owner)
+        }
+        val nextId = posts.lastOrNull()?.id?.toCursorId()
+        val cursor = Cursor(
+            data = posts,
+            nextId = nextId.takeIf { hasNext },
+        )
+        return RepliesResult.Success(cursor)
     }
 
     sealed interface ListResult {
@@ -78,7 +130,7 @@ object CommunityService {
             .authorize(context, authorization)
             .onFailure { return Unauthorized }
         val exists = suspendTransaction(context.database) {
-            CommunityPostsTable.delete(id)
+            CommunityPostsTable.delete(id, authorization.id)
         }
         if (!exists) {
             return NotFound
@@ -102,7 +154,7 @@ object CommunityService {
             .authorize(context, authorization)
             .onFailure { return Unauthorized }
         val exists = suspendTransaction(context.database) {
-            CommunityPostsTable.update(id, text)
+            CommunityPostsTable.update(id, authorization.id, text)
         }
         if (!exists) {
             return NotFound
@@ -113,6 +165,7 @@ object CommunityService {
     fun CommunityPostsTable.Entry.toPost(owner: UserDetails): CommunityPost =
         CommunityPost(
             id = id,
+            accessHash = accessHash,
             text = text,
             owner = owner,
             instant = instant,
