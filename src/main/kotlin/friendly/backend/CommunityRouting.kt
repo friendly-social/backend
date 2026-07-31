@@ -9,7 +9,10 @@ import kotlinx.serialization.Serializable
 
 object CommunityRouting {
     @Serializable
-    data class PostBody(val text: CommunityPostTextSerializable)
+    data class PostBody(
+        val text: CommunityPostTextSerializable,
+        val replyTo: CommunityPostDescriptorSerializable? = null,
+    )
 
     fun post(context: AppContext) {
         context.routing.post("/community") {
@@ -19,10 +22,12 @@ object CommunityRouting {
                 context = context,
                 authorization = authorization,
                 text = body.text.typed(),
+                replyTo = body.replyTo?.typed(),
             )
             when (result) {
                 is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
-                is Success -> call.respond(HttpStatusCode.OK)
+                is NotFound -> call.respond(HttpStatusCode.NotFound)
+                is Success -> call.respond(result.descriptor.serializable())
             }
         }
     }
@@ -34,6 +39,33 @@ object CommunityRouting {
             val result = CommunityService.list(context, authorization, cursorId)
             when (result) {
                 is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                is CursorInvalid -> call.respond(HttpStatusCode.BadRequest)
+                is Success -> {
+                    val response = result.cursor
+                        .serializable { post -> post.serializable() }
+                    call.respond(response)
+                }
+            }
+        }
+    }
+
+    fun replies(context: AppContext) {
+        context.routing.get(
+            "/community/{id}/{accessHash}/replies/{cursorId?}",
+        ) {
+            val authorization = call.authorization()
+            val id = call.postId("id")
+            val accessHash = call.postAccessHash("accessHash")
+            val cursorId = call.cursorIdOrNull("cursorId")
+            val result = CommunityService.replies(
+                context = context,
+                authorization = authorization,
+                replyTo = CommunityPostDescriptor(id, accessHash),
+                cursorId = cursorId,
+            )
+            when (result) {
+                is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                is NotFound -> call.respond(HttpStatusCode.NotFound)
                 is CursorInvalid -> call.respond(HttpStatusCode.BadRequest)
                 is Success -> {
                     val response = result.cursor

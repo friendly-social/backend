@@ -6,6 +6,7 @@ import kotlin.time.Instant
 @Serializable
 data class CommunityPostSerializable(
     val id: CommunityPostIdSerializable,
+    val accessHash: CommunityPostAccessHashSerializable,
     val text: CommunityPostTextSerializable,
     val owner: UserDetailsSerializable,
     val instant: Instant,
@@ -13,6 +14,7 @@ data class CommunityPostSerializable(
 ) {
     fun typed(): CommunityPost = CommunityPost(
         id = id.typed(),
+        accessHash = accessHash.typed(),
         text = text.typed(),
         owner = owner.typed(),
         instant = instant,
