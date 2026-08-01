@@ -115,6 +115,57 @@ object CommunityService {
         return ListResult.Success(cursor)
     }
 
+    sealed interface FromResult {
+        data object Unauthorized : FromResult
+        data object NotFound : FromResult
+        data object CursorInvalid : FromResult
+        data class Success(val cursor: Cursor<CommunityPost>) : FromResult
+    }
+
+    suspend fun from(
+        context: AppContext,
+        authorization: Authorization,
+        userDescriptor: UserDescriptor,
+        cursorId: CursorId?,
+    ): FromResult {
+        val before = cursorId?.toCommunityPostId { return CursorInvalid }
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return Unauthorized }
+        val user = UsersService.details(
+            context = context,
+            fromId = authorization.id,
+            descriptor = userDescriptor,
+        ) ?: return NotFound
+        val selfPosts = authorization.id == userDescriptor.id
+        if (!selfPosts) {
+            val friends = FriendsService.areFriends(
+                context = context,
+                first = authorization.id,
+                second = user.id,
+            )
+            if (!friends) {
+                return NotFound
+            }
+        }
+        val (postRecords, hasNext) = suspendTransaction(context.database) {
+            CommunityPostsTable.select(
+                ids = listOf(user.id),
+                before = before,
+                limit = 1000,
+            )
+        }
+        val posts = postRecords.map { record ->
+            record.toPost(user)
+        }
+        val nextId = posts.lastOrNull()?.id?.toCursorId()
+        val cursor = Cursor(
+            data = posts,
+            nextId = nextId.takeIf { hasNext },
+        )
+        return FromResult.Success(cursor)
+    }
+
     sealed interface DeleteResult {
         data object Unauthorized : DeleteResult
         data object NotFound : DeleteResult

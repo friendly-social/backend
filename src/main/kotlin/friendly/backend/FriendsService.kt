@@ -249,4 +249,17 @@ object FriendsService {
                 .map { descriptor -> descriptor.toId }
             mutualFriends
         }
+
+    suspend fun areFriends(
+        context: AppContext,
+        first: UserId,
+        second: UserId,
+    ): Boolean {
+        val descriptor = FriendsTable.Descriptor(first, second)
+        return suspendTransaction(context.database) {
+            FriendsTable.select(
+                descriptors = listOf(descriptor, descriptor.swap()),
+            )
+        }.all { decision -> decision == Request }
+    }
 }
