@@ -36,9 +36,41 @@ object CommunityRouting {
         context.routing.get("/community/list/{cursorId?}") {
             val authorization = call.authorization()
             val cursorId = call.cursorIdOrNull("cursorId")
-            val result = CommunityService.list(context, authorization, cursorId)
+            val result = CommunityService.list(
+                context = context,
+                authorization = authorization,
+                cursorId = cursorId,
+            )
             when (result) {
                 is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                is CursorInvalid -> call.respond(HttpStatusCode.BadRequest)
+                is Success -> {
+                    val response = result.cursor
+                        .serializable { post -> post.serializable() }
+                    call.respond(response)
+                }
+            }
+        }
+    }
+
+    fun from(context: AppContext) {
+        context.routing.get(
+            "/community/from/{userId}/{userAccessHash}/{cursorId?}",
+        ) {
+            val authorization = call.authorization()
+            val userId = call.userId("userId")
+            val userAccessHash = call.userAccessHash("userAccessHash")
+            val userDescriptor = UserDescriptor(userId, userAccessHash)
+            val cursorId = call.cursorIdOrNull("cursorId")
+            val result = CommunityService.from(
+                context = context,
+                authorization = authorization,
+                userDescriptor = userDescriptor,
+                cursorId = cursorId,
+            )
+            when (result) {
+                is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                is NotFound -> call.respond(HttpStatusCode.NotFound)
                 is CursorInvalid -> call.respond(HttpStatusCode.BadRequest)
                 is Success -> {
                     val response = result.cursor

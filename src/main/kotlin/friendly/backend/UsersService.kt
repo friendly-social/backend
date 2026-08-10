@@ -77,6 +77,18 @@ object UsersService {
     suspend fun details(
         context: AppContext,
         fromId: UserId,
+        descriptor: UserDescriptor,
+    ): UserDetails? = details(
+        context = context,
+        fromId = fromId,
+        ids = listOf(descriptor.id),
+    ).first()?.takeIf { user ->
+        user.accessHash == descriptor.accessHash
+    }
+
+    suspend fun details(
+        context: AppContext,
+        fromId: UserId,
         ids: List<UserId>,
     ): List<UserDetails?> {
         return suspendTransaction(context.database) {

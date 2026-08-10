@@ -102,6 +102,7 @@ private fun embeddedServer(
         CommunityRouting.delete(context)
         CommunityRouting.edit(context)
         CommunityRouting.replies(context)
+        CommunityRouting.from(context)
     }
 }
 

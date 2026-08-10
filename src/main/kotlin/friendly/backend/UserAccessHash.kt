@@ -1,5 +1,6 @@
 package friendly.backend
 
+import io.ktor.server.routing.RoutingCall
 import kotlin.random.Random
 
 data class UserAccessHash private constructor(val string: String) {
@@ -29,4 +30,9 @@ data class UserAccessHash private constructor(val string: String) {
             return UserAccessHash(string)
         }
     }
+}
+
+fun RoutingCall.userAccessHash(name: String): UserAccessHash {
+    val string = parameters[name] ?: error("$name is not optional")
+    return UserAccessHashSerializable(string).typed()
 }
