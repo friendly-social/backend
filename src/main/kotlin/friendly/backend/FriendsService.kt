@@ -217,6 +217,16 @@ object FriendsService {
         return user
     }
 
+    suspend fun commonFriendIds(
+        context: AppContext,
+        firstUserId: UserId,
+        secondUserId: UserId,
+    ): List<UserId> {
+        val firstFriends = listIds(context, fromId = firstUserId)
+        val secondFriends = listIds(context, fromId = secondUserId)
+        return firstFriends.intersect(secondFriends).toList()
+    }
+
     suspend fun list(context: AppContext, fromId: UserId): List<UserDetails> {
         val friendIds = listIds(context, fromId)
         val friendDetails = UsersService.details(

@@ -84,6 +84,7 @@ private fun embeddedServer(
         AuthRouting.login(context)
         AuthRouting.logout(context)
         UsersRouting.details(context)
+        UsersRouting.details2(context)
         UsersRouting.edit(context)
         FilesRouting.upload(context)
         FilesRouting.download(context)

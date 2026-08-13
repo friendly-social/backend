@@ -10,6 +10,35 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 
 object UsersRouting {
+    @Serializable
+    data class Details2Response(
+        val details: UserDetailsSerializable,
+        val commonFriends: List<UserDetailsSerializable>?,
+    )
+
+    fun details2(context: AppContext) {
+        context.routing.get("/users/details2/{id?}/{accessHash?}") {
+            val authorization = call.authorization()
+            val descriptor = call.descriptorOrThrow()
+            val result = UsersService.details(
+                context = context,
+                authorization = authorization,
+                descriptor = descriptor,
+            )
+            when (result) {
+                is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                is NotFound -> call.respond(HttpStatusCode.NotFound)
+                is Success -> call.respond(result.serializable())
+            }
+        }
+    }
+
+    private fun UsersService.DetailsResult.Success.serializable() =
+        Details2Response(
+            details = details.serializable(),
+            commonFriends = commonFriends?.map { user -> user.serializable() },
+        )
+
     fun details(context: AppContext) {
         context.routing.get("/users/details/{id?}/{accessHash?}") {
             val authorization = call.authorization()
