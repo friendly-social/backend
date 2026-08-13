@@ -84,11 +84,41 @@ object CommunityPostsTable : Table("community_posts") {
             .limit(limit + 1)
             .toList()
             .map { row -> row.toEntry() }
-        val hasNext = entries.size == limit + 1
-        return SelectResult(
-            entries = entries.dropLast(n = if (hasNext) 1 else 0),
-            hasNext = hasNext,
-        )
+        return if (entries.size == limit + 1) {
+            SelectResult(
+                entries = entries.dropLast(1),
+                hasNext = true,
+            )
+        } else {
+            SelectResult(
+                entries = entries,
+                hasNext = false,
+            )
+        }
+    }
+
+    suspend fun selectById(ids: List<CommunityPostId>): List<Entry> {
+        val raw = ids.map { id -> id.long }
+        val map = selectAll()
+            .where { idColumn inList raw }
+            .map { row -> row.toEntry() }
+            .toList()
+            .associateBy { entry -> entry.id }
+        return ids.map { id -> map.getValue(id) }
+    }
+
+    suspend fun selectByDescriptor(
+        descriptors: List<CommunityPostDescriptor>,
+    ): List<Entry?> {
+        val raw = descriptors.map { (id, accessHash) ->
+            id.long to accessHash.string
+        }
+        val map = selectAll()
+            .where { (idColumn to accessHashColumn) inList raw }
+            .map { row -> row.toEntry() }
+            .toList()
+            .associateBy { entry -> entry.id }
+        return descriptors.map { (id) -> map.get(id) }
     }
 
     suspend fun exists(descriptor: CommunityPostDescriptor): Boolean =
