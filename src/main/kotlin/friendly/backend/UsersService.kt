@@ -35,7 +35,10 @@ object UsersService {
     sealed interface DetailsResult {
         data object Unauthorized : DetailsResult
         data object NotFound : DetailsResult
-        data class Success(val details: UserDetails) : DetailsResult
+        data class Success(
+            val details: UserDetails,
+            val commonFriends: List<UserDetails>?,
+        ) : DetailsResult
     }
 
     suspend fun details(
@@ -59,10 +62,23 @@ object UsersService {
             val hashInvalid = descriptor is Other &&
                 descriptor.accessHash != details?.accessHash
             if (details == null || hashInvalid) {
-                DetailsResult.NotFound
-            } else {
-                DetailsResult.Success(details)
+                return@suspendTransaction DetailsResult.NotFound
             }
+            val commonFriends = if (descriptorId == authorization.id) {
+                null
+            } else {
+                val ids = FriendsService.commonFriendIds(
+                    context = context,
+                    firstUserId = authorization.id,
+                    secondUserId = descriptorId,
+                )
+                UsersService.detailsOrThrow(
+                    context = context,
+                    fromId = authorization.id,
+                    ids = ids,
+                )
+            }
+            DetailsResult.Success(details, commonFriends)
         }
     }
 
