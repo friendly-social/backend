@@ -9,6 +9,39 @@ import kotlinx.serialization.Serializable
 
 object CommunityRouting {
     @Serializable
+    data class DetailsResponse(
+        val post: CommunityPostDetailsSerializable,
+        val replies: CursorSerializable<CommunityPostDetailsSerializable>,
+        val upstream: List<CommunityPostDetailsSerializable>,
+    )
+
+    fun details(context: AppContext) {
+        context.routing.get("/community/{id}/{accessHash}") {
+            val authorization = call.authorization()
+            val id = call.postId("id")
+            val accessHash = call.postAccessHash("accessHash")
+            val descriptor = CommunityPostDescriptor(id, accessHash)
+            val result = CommunityService.details(
+                context = context,
+                authorization = authorization,
+                descriptor = descriptor,
+            )
+            when (result) {
+                is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                is NotFound -> call.respond(HttpStatusCode.NotFound)
+                is Success -> call.respond(result.serializable())
+            }
+        }
+    }
+
+    fun CommunityService.DetailsResult.Success.serializable(): DetailsResponse =
+        DetailsResponse(
+            post = post.serializable(),
+            replies = replies.serializable { post -> post.serializable() },
+            upstream = upstream.map { post -> post.serializable() },
+        )
+
+    @Serializable
     data class PostBody(
         val text: CommunityPostTextSerializable,
         val replyTo: CommunityPostDescriptorSerializable? = null,
