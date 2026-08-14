@@ -38,7 +38,7 @@ object CommunityService {
                 context = context,
                 fromId = authorization.id,
                 replyTo = post.id,
-                before = null,
+                after = null,
             )
             val upstream = upstream(
                 context = context,
@@ -70,11 +70,14 @@ object CommunityService {
         AuthService
             .authorize(context, authorization)
             .onFailure { return Unauthorized }
-        if (replyTo != null) {
-            val noPost = suspendTransaction(context.database) {
-                !CommunityPostsTable.exists(replyTo)
-            }
-            if (noPost) return NotFound
+        val replyToEntry = if (replyTo != null) {
+            suspendTransaction(context.database) {
+                CommunityPostsTable
+                    .selectByDescriptor(listOf(replyTo))
+                    .first()
+            } ?: return NotFound
+        } else {
+            null
         }
         val now = context.clock.now()
         val accessHash = CommunityPostAccessHash.random(context.random)
@@ -98,6 +101,10 @@ object CommunityService {
             if (path != null && replyTo != null) {
                 CommunityPostsPathTable.insert(id, path + replyTo.id)
             }
+            val isSelfReply = replyToEntry?.ownerId == authorization.id
+            if (replyToEntry != null && !isSelfReply) {
+                ActivityService.addReply(context, replyToEntry.ownerId, id)
+            }
             id
         } ?: return PostResult.NotFound
         val descriptor = CommunityPostDescriptor(id, accessHash)
@@ -116,10 +123,10 @@ object CommunityService {
         context: AppContext,
         fromId: UserId,
         replyTo: CommunityPostId,
-        before: CommunityPostId?,
+        after: CommunityPostId?,
     ): Cursor<CommunityPostDetails> {
         val (postRecords, hasNext) = suspendTransaction(context.database) {
-            CommunityPostsTable.select(replyTo, before, limit = 1000)
+            CommunityPostsTable.selectReplies(replyTo, after, limit = 1000)
         }
         val users = UsersService.detailsOrThrow(
             context = context,
@@ -146,7 +153,7 @@ object CommunityService {
         AuthService
             .authorize(context, authorization)
             .onFailure { return Unauthorized }
-        val before = cursorId?.toCommunityPostId { return CursorInvalid }
+        val after = cursorId?.toCommunityPostId { return CursorInvalid }
         val noPost = suspendTransaction(context.database) {
             !CommunityPostsTable.exists(replyTo)
         }
@@ -155,7 +162,7 @@ object CommunityService {
             context = context,
             fromId = authorization.id,
             replyTo = replyTo.id,
-            before = before,
+            after = after,
         )
         return RepliesResult.Success(cursor)
     }
@@ -167,7 +174,7 @@ object CommunityService {
     ): List<CommunityPostDetails> = suspendTransaction(context.database) {
         val path = CommunityPostsPathTable.select(postId)
         val entries = CommunityPostsTable.selectById(path)
-        toPosts(context, fromId, entries)
+        detailsFromEntries(context, fromId, entries)
     }
 
     sealed interface ListResult {
@@ -191,7 +198,7 @@ object CommunityService {
         val (postRecords, hasNext) = suspendTransaction(context.database) {
             CommunityPostsTable.select(ids, before, limit = 1000)
         }
-        val posts = toPosts(context, authorization.id, postRecords)
+        val posts = detailsFromEntries(context, authorization.id, postRecords)
         val nextId = posts.lastOrNull()?.id?.toCursorId()
         val cursor = Cursor(
             data = posts,
@@ -299,7 +306,18 @@ object CommunityService {
         return Success
     }
 
-    suspend fun toPosts(
+    suspend fun detailsFromIds(
+        context: AppContext,
+        fromId: UserId,
+        ids: List<CommunityPostId>,
+    ): List<CommunityPostDetails> {
+        val entries = suspendTransaction(context.database) {
+            CommunityPostsTable.selectById(ids)
+        }
+        return detailsFromEntries(context, fromId, entries)
+    }
+
+    suspend fun detailsFromEntries(
         context: AppContext,
         fromId: UserId,
         entries: List<CommunityPostsTable.Entry>,

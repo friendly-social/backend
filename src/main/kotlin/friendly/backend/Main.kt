@@ -105,6 +105,7 @@ private fun embeddedServer(
         CommunityRouting.replies(context)
         CommunityRouting.from(context)
         CommunityRouting.details(context)
+        ActivityRouting.list(context)
     }
 }
 

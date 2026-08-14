@@ -7,6 +7,7 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.datetime.timestamp
@@ -63,24 +64,30 @@ object CommunityPostsTable : Table("community_posts") {
             .limit(limit + 1)
             .toList()
             .map { row -> row.toEntry() }
-        val hasNext = entries.size == limit + 1
-        return SelectResult(
-            entries = entries.dropLast(n = if (hasNext) 1 else 0),
-            hasNext = hasNext,
-        )
+        return if (entries.size == limit + 1) {
+            SelectResult(
+                entries = entries.dropLast(1),
+                hasNext = true,
+            )
+        } else {
+            SelectResult(
+                entries = entries,
+                hasNext = false,
+            )
+        }
     }
 
-    suspend fun select(
+    suspend fun selectReplies(
         replyTo: CommunityPostId,
-        before: CommunityPostId?,
+        after: CommunityPostId?,
         limit: Int,
     ): SelectResult {
         val entries = selectAll()
             .where {
                 (replyToColumn eq replyTo.long) and
-                    (idColumn less (before?.long ?: Long.MAX_VALUE))
+                    (idColumn greater (after?.long ?: MIN_VALUE))
             }
-            .orderBy(idColumn, DESC)
+            .orderBy(idColumn, ASC)
             .limit(limit + 1)
             .toList()
             .map { row -> row.toEntry() }
