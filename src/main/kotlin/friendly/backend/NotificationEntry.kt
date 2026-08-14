@@ -1,6 +1,6 @@
 package friendly.backend
 
-sealed interface NotificationRecord {
+sealed interface NotificationEntry {
     val id: NotificationId
     val toId: UserId
 
@@ -9,5 +9,5 @@ sealed interface NotificationRecord {
         override val toId: UserId,
         val fromId: UserId,
         val isMutual: Boolean,
-    ) : NotificationRecord
+    ) : NotificationEntry
 }

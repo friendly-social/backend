@@ -21,7 +21,7 @@ object NotificationsTable : Table("notifications") {
 
     override val primaryKey = PrimaryKey(idColumn)
 
-    suspend fun insert(payload: NotificationPayload): NotificationRecord =
+    suspend fun insert(payload: NotificationPayload): NotificationEntry =
         insert { statement ->
             statement[toIdColumn] = payload.toId.long
             when (payload) {
@@ -33,7 +33,7 @@ object NotificationsTable : Table("notifications") {
             }
         }.resultedValues!![0].toRecord()
 
-    suspend fun select(): List<NotificationRecord> = selectAll()
+    suspend fun select(): List<NotificationEntry> = selectAll()
         .map { row -> row.toRecord() }
         .toList()
 
@@ -41,7 +41,7 @@ object NotificationsTable : Table("notifications") {
         deleteWhere { idColumn eq id.long }
     }
 
-    private fun ResultRow.toRecord(): NotificationRecord {
+    private fun ResultRow.toRecord(): NotificationEntry {
         val id = NotificationId(this[idColumn])
         val toId = UserId(this[toIdColumn])
         return when (this[typeColumn]) {
@@ -51,7 +51,7 @@ object NotificationsTable : Table("notifications") {
                     ?: error("Invalid ResultRow")
                 val isMutual = this[newRequestIsMutualColumn]
                     ?: error("Invalid ResultRow")
-                NotificationRecord.NewRequest(id, toId, fromId, isMutual)
+                NotificationEntry.NewRequest(id, toId, fromId, isMutual)
             }
         }
     }

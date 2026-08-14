@@ -32,7 +32,7 @@ object NotificationsService {
         }
     }
 
-    fun execute(context: AppContext, notification: NotificationRecord) {
+    fun execute(context: AppContext, notification: NotificationEntry) {
         context.notifications.gracefulScope.launch(start = UNDISPATCHED) {
             val details = details(context, notification)
             val tokens = suspendTransaction(context.database) {
@@ -64,7 +64,7 @@ object NotificationsService {
 
     suspend fun details(
         context: AppContext,
-        notification: NotificationRecord,
+        notification: NotificationEntry,
     ): NotificationDetails = suspendTransaction(context.database) {
         when (notification) {
             is NewRequest -> {
@@ -89,7 +89,7 @@ object NotificationsService {
 
     suspend fun markAsSent(
         context: AppContext,
-        notification: NotificationRecord,
+        notification: NotificationEntry,
     ) {
         suspendTransaction(context.database) {
             NotificationsTable.delete(notification.id)
