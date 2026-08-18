@@ -15,9 +15,9 @@ sealed interface Friendship {
         override fun serializable(): FriendshipSerializable =
             FriendshipSerializable(string = "outgoingRequest")
     }
-    data object Block : Friendship {
+    data object OutgoingDecline : Friendship {
         override fun serializable(): FriendshipSerializable =
-            FriendshipSerializable(string = "block")
+            FriendshipSerializable(string = "outgoingDecline")
     }
     data object None : Friendship {
         override fun serializable(): FriendshipSerializable =

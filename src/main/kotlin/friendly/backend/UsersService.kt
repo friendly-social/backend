@@ -146,7 +146,7 @@ object UsersService {
                 outgoing == Request && incoming == Request -> Friends
                 outgoing == Request -> OutgoingRequest
                 incoming == Request -> IncomingRequest
-                outgoing == Decline -> Block
+                outgoing == Decline -> OutgoingDecline
                 else -> None
             }
         }
