@@ -54,11 +54,11 @@ object ActivityService {
         val posts = CommunityService
             .detailsFromIds(context, fromId, postIds)
             .iterator()
-
         return entries.map { entry ->
             when (entry) {
                 is Reply -> ActivityDetails.Reply(
                     id = entry.id,
+                    instant = entry.instant,
                     post = posts.next(),
                 )
             }
@@ -71,7 +71,8 @@ object ActivityService {
         postId: CommunityPostId,
     ) {
         suspendTransaction(context.database) {
-            val reply = ActivityPayload.Reply(toId, postId)
+            val instant = context.clock.now()
+            val reply = ActivityPayload.Reply(toId, instant, postId)
             ActivityTable.insert(reply)
         }
     }
