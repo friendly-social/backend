@@ -36,7 +36,7 @@ object UsersService {
         data object Unauthorized : DetailsResult
         data object NotFound : DetailsResult
         data class Success(
-            val details: UserDetails,
+            val user: UserDetails,
             val commonFriends: List<UserDetails>?,
         ) : DetailsResult
     }
@@ -54,14 +54,14 @@ object UsersService {
             is Other -> descriptor.id
         }
         return suspendTransaction(context.database) {
-            val details = details(
+            val user = details(
                 context = context,
                 fromId = authorization.id,
                 ids = listOf(descriptorId),
             ).first()
             val hashInvalid = descriptor is Other &&
-                descriptor.accessHash != details?.accessHash
-            if (details == null || hashInvalid) {
+                descriptor.accessHash != user?.accessHash
+            if (user == null || hashInvalid) {
                 return@suspendTransaction DetailsResult.NotFound
             }
             val commonFriends = if (descriptorId == authorization.id) {
@@ -78,7 +78,7 @@ object UsersService {
                     ids = ids,
                 )
             }
-            DetailsResult.Success(details, commonFriends)
+            DetailsResult.Success(user, commonFriends)
         }
     }
 
@@ -109,10 +109,13 @@ object UsersService {
     ): List<UserDetails?> {
         return suspendTransaction(context.database) {
             val entries = UsersTable.select(ids)
-            val interests = InterestsTable.select(ids)
+            val interests = InterestsTable.select(ids).iterator()
             val email = selectEmailIfOwner(fromId, ids)
-            entries.zip(interests) { entry, interests ->
-                entry ?: return@zip null
+            val friendship = friendship(fromId, ids).iterator()
+            entries.map { entry ->
+                val interests = interests.next()
+                val friendship = friendship.next()
+                entry ?: return@map null
                 UserDetails(
                     id = entry.id,
                     accessHash = entry.accessHash,
@@ -122,7 +125,29 @@ object UsersService {
                     avatar = entry.avatar,
                     interests = interests.list,
                     socialLink = entry.socialLink,
+                    friendship = friendship,
                 )
+            }
+        }
+    }
+
+    private suspend fun friendship(
+        fromId: UserId,
+        ids: List<UserId>,
+    ): List<Friendship> {
+        val descriptors = ids.flatMap { id ->
+            val outgoing = FriendsTable.Descriptor(fromId, id)
+            val incoming = outgoing.swap()
+            listOf(outgoing, incoming)
+        }
+        val decisions = FriendsTable.select(descriptors)
+        return decisions.chunked(2).map { (outgoing, incoming) ->
+            when {
+                outgoing == Request && incoming == Request -> Friends
+                outgoing == Request -> OutgoingRequest
+                incoming == Request -> IncomingRequest
+                outgoing == Decline -> Block
+                else -> None
             }
         }
     }

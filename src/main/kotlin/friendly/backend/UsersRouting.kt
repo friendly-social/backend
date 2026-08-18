@@ -12,7 +12,7 @@ import kotlinx.serialization.SerializationException
 object UsersRouting {
     @Serializable
     data class Details2Response(
-        val details: UserDetailsSerializable,
+        val user: UserDetailsSerializable,
         val commonFriends: List<UserDetailsSerializable>?,
     )
 
@@ -35,7 +35,7 @@ object UsersRouting {
 
     private fun UsersService.DetailsResult.Success.serializable() =
         Details2Response(
-            details = details.serializable(),
+            user = user.serializable(),
             commonFriends = commonFriends?.map { user -> user.serializable() },
         )
 
@@ -51,7 +51,7 @@ object UsersRouting {
             when (result) {
                 is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
                 is NotFound -> call.respond(HttpStatusCode.NotFound)
-                is Success -> call.respond(result.details.serializable())
+                is Success -> call.respond(result.user.serializable())
             }
         }
     }
