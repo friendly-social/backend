@@ -17,7 +17,7 @@ value class FriendshipSerializable(val string: String) {
             "friends" -> Friends
             "incomingRequest" -> IncomingRequest
             "outgoingRequest" -> OutgoingRequest
-            "block" -> Block
+            "outgoingDecline" -> OutgoingDecline
             "none" -> None
             else -> block(string)
         }
