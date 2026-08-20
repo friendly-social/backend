@@ -8,4 +8,9 @@ sealed interface NotificationPayload {
         val fromId: UserId,
         val isMutual: Boolean,
     ) : NotificationPayload
+
+    data class NewReply(
+        override val toId: UserId,
+        val postId: CommunityPostId,
+    ) : NotificationPayload
 }

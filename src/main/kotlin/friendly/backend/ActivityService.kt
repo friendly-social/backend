@@ -52,14 +52,14 @@ object ActivityService {
             }
         }
         val posts = CommunityService
-            .detailsFromIds(context, fromId, postIds)
+            .detailsFromIds(context, fromId, postIds, withDeleted = false)
             .iterator()
         return entries.map { entry ->
             when (entry) {
                 is Reply -> ActivityDetails.Reply(
                     id = entry.id,
                     instant = entry.instant,
-                    post = posts.next(),
+                    post = posts.next() as Plain,
                 )
             }
         }
@@ -74,6 +74,27 @@ object ActivityService {
             val instant = context.clock.now()
             val reply = ActivityPayload.Reply(toId, instant, postId)
             ActivityTable.insert(reply)
+        }
+    }
+
+    suspend fun onPostCreated(
+        context: AppContext,
+        fromId: UserId,
+        id: CommunityPostId,
+        replyTo: CommunityPostsTable.Entry?,
+    ) {
+        val replyOwnerId = replyTo?.ownerId ?: return
+        val isNotSelfReply = replyOwnerId != fromId
+        if (isNotSelfReply) {
+            suspendTransaction(context.database) {
+                ActivityService.addReply(context, replyOwnerId, id)
+            }
+        }
+    }
+
+    suspend fun onPostDeleted(context: AppContext, postId: CommunityPostId) {
+        suspendTransaction(context.database) {
+            ActivityTable.deleteReplies(postId)
         }
     }
 }

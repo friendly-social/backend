@@ -24,16 +24,16 @@ object CommunityService {
         return suspendTransaction(context.database) {
             val entry = CommunityPostsTable.selectByDescriptor(
                 listOf(descriptor),
+                withDeleted = true,
             ).first()
             if (entry == null) {
                 return@suspendTransaction DetailsResult.NotFound
             }
-            val owner = UsersService.detailsOrThrow(
+            val post = detailsFromEntries(
                 context = context,
                 fromId = authorization.id,
-                ids = listOf(entry.ownerId),
+                entries = listOf(entry),
             ).first()
-            val post = entry.toPost(owner)
             val replies = replies(
                 context = context,
                 fromId = authorization.id,
@@ -73,7 +73,7 @@ object CommunityService {
         val replyToEntry = if (replyTo != null) {
             suspendTransaction(context.database) {
                 CommunityPostsTable
-                    .selectByDescriptor(listOf(replyTo))
+                    .selectByDescriptor(listOf(replyTo), withDeleted = true)
                     .first()
             } ?: return NotFound
         } else {
@@ -101,10 +101,18 @@ object CommunityService {
             if (path != null && replyTo != null) {
                 CommunityPostsPathTable.insert(id, path + replyTo.id)
             }
-            val isSelfReply = replyToEntry?.ownerId == authorization.id
-            if (replyToEntry != null && !isSelfReply) {
-                ActivityService.addReply(context, replyToEntry.ownerId, id)
-            }
+            ActivityService.onPostCreated(
+                context = context,
+                fromId = authorization.id,
+                replyTo = replyToEntry,
+                id = id,
+            )
+            NotificationsService.onPostCreated(
+                context = context,
+                fromId = authorization.id,
+                replyTo = replyToEntry,
+                id = id,
+            )
             id
         } ?: return PostResult.NotFound
         val descriptor = CommunityPostDescriptor(id, accessHash)
@@ -125,17 +133,15 @@ object CommunityService {
         replyTo: CommunityPostId,
         after: CommunityPostId?,
     ): Cursor<CommunityPostDetails> {
-        val (postRecords, hasNext) = suspendTransaction(context.database) {
-            CommunityPostsTable.selectReplies(replyTo, after, limit = 1000)
+        val (entries, hasNext) = suspendTransaction(context.database) {
+            CommunityPostsTable.selectReplies(
+                replyTo = replyTo,
+                after = after,
+                limit = 1000,
+                withDeleted = true,
+            )
         }
-        val users = UsersService.detailsOrThrow(
-            context = context,
-            fromId = fromId,
-            ids = postRecords.map { record -> record.ownerId },
-        )
-        val posts = postRecords.zip(users) { record, owner ->
-            record.toPost(owner)
-        }
+        val posts = detailsFromEntries(context, fromId, entries)
         val nextId = posts.lastOrNull()?.id?.toCursorId()
         val cursor = Cursor(
             data = posts,
@@ -155,7 +161,7 @@ object CommunityService {
             .onFailure { return Unauthorized }
         val after = cursorId?.toCommunityPostId { return CursorInvalid }
         val noPost = suspendTransaction(context.database) {
-            !CommunityPostsTable.exists(replyTo)
+            !CommunityPostsTable.exists(replyTo, withDeleted = false)
         }
         if (noPost) return NotFound
         val cursor = replies(
@@ -173,14 +179,14 @@ object CommunityService {
         postId: CommunityPostId,
     ): List<CommunityPostDetails> = suspendTransaction(context.database) {
         val path = CommunityPostsPathTable.select(postId)
-        val entries = CommunityPostsTable.selectById(path)
+        val entries = CommunityPostsTable.selectById(path, withDeleted = true)
         detailsFromEntries(context, fromId, entries)
     }
 
     sealed interface ListResult {
         data object Unauthorized : ListResult
         data object CursorInvalid : ListResult
-        data class Success(val cursor: Cursor<CommunityPostDetails>) :
+        data class Success(val cursor: Cursor<CommunityPostDetails.Plain>) :
             ListResult
     }
 
@@ -195,10 +201,16 @@ object CommunityService {
             .onFailure { return Unauthorized }
         val friends = FriendsService.listIds(context, authorization.id)
         val ids = friends + authorization.id
-        val (postRecords, hasNext) = suspendTransaction(context.database) {
-            CommunityPostsTable.select(ids, before, limit = 1000)
+        val (entries, hasNext) = suspendTransaction(context.database) {
+            CommunityPostsTable.selectFrom(
+                ids = ids,
+                before = before,
+                limit = 1000,
+                withDeleted = false,
+            )
         }
-        val posts = detailsFromEntries(context, authorization.id, postRecords)
+        val posts = detailsFromEntries(context, authorization.id, entries)
+            .map { post -> post as Plain }
         val nextId = posts.lastOrNull()?.id?.toCursorId()
         val cursor = Cursor(
             data = posts,
@@ -241,15 +253,18 @@ object CommunityService {
                 return NotFound
             }
         }
-        val (postRecords, hasNext) = suspendTransaction(context.database) {
-            CommunityPostsTable.select(
+        val (entries, hasNext) = suspendTransaction(context.database) {
+            CommunityPostsTable.selectFrom(
                 ids = listOf(user.id),
                 before = before,
                 limit = 1000,
+                withDeleted = false,
             )
         }
-        val posts = postRecords.map { record ->
-            record.toPost(user)
+        val posts = entries.map { record ->
+            record.toPost(
+                ownerIfPlain = { user },
+            )
         }
         val nextId = posts.lastOrNull()?.id?.toCursorId()
         val cursor = Cursor(
@@ -274,7 +289,11 @@ object CommunityService {
             .authorize(context, authorization)
             .onFailure { return Unauthorized }
         val exists = suspendTransaction(context.database) {
-            CommunityPostsTable.delete(id, authorization.id)
+            val exists = CommunityPostsTable.delete(id, authorization.id)
+            if (exists) {
+                ActivityService.onPostDeleted(context, id)
+            }
+            exists
         }
         if (!exists) {
             return NotFound
@@ -310,9 +329,10 @@ object CommunityService {
         context: AppContext,
         fromId: UserId,
         ids: List<CommunityPostId>,
+        withDeleted: Boolean,
     ): List<CommunityPostDetails> {
         val entries = suspendTransaction(context.database) {
-            CommunityPostsTable.selectById(ids)
+            CommunityPostsTable.selectById(ids, withDeleted)
         }
         return detailsFromEntries(context, fromId, entries)
     }
@@ -325,21 +345,35 @@ object CommunityService {
         val users = UsersService.detailsOrThrow(
             context = context,
             fromId = fromId,
-            ids = entries.map { entry -> entry.ownerId },
-        )
-        return entries.zip(users) { entry, owner ->
-            entry.toPost(owner)
+            ids = entries.mapNotNull { entry ->
+                when (entry) {
+                    is Plain -> entry.ownerId
+                    is Deleted -> null
+                }
+            },
+        ).iterator()
+        return entries.map { entry ->
+            entry.toPost(
+                ownerIfPlain = { users.next() },
+            )
         }
     }
 
-    fun CommunityPostsTable.Entry.toPost(
-        owner: UserDetails,
-    ): CommunityPostDetails = CommunityPostDetails(
-        id = id,
-        accessHash = accessHash,
-        text = text,
-        owner = owner,
-        instant = instant,
-        edited = edited,
-    )
+    inline fun CommunityPostsTable.Entry.toPost(
+        ownerIfPlain: () -> UserDetails,
+    ): CommunityPostDetails = when (this) {
+        is Plain -> CommunityPostDetails.Plain(
+            id = id,
+            accessHash = accessHash,
+            instant = instant,
+            text = text,
+            owner = ownerIfPlain(),
+            edited = edited,
+        )
+        is Deleted -> CommunityPostDetails.Deleted(
+            id = id,
+            accessHash = accessHash,
+            instant = instant,
+        )
+    }
 }
