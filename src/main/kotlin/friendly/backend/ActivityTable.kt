@@ -8,6 +8,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.datetime.timestamp
+import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 
@@ -64,6 +65,12 @@ object ActivityTable : Table("activity") {
                 entries = entries,
                 hasNext = false,
             )
+        }
+    }
+
+    suspend fun deleteReplies(postId: CommunityPostId) {
+        deleteWhere {
+            replyPostIdColumn eq postId.long
         }
     }
 

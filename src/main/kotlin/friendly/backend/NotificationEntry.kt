@@ -10,4 +10,10 @@ sealed interface NotificationEntry {
         val fromId: UserId,
         val isMutual: Boolean,
     ) : NotificationEntry
+
+    data class NewReply(
+        override val id: NotificationId,
+        override val toId: UserId,
+        val postId: CommunityPostId,
+    ) : NotificationEntry
 }

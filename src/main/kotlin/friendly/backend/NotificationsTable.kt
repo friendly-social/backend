@@ -19,6 +19,9 @@ object NotificationsTable : Table("notifications") {
     private val newRequestIsMutualColumn =
         bool("new_request_is_mutual").nullable()
 
+    private val newReplyPostIdColumn =
+        long("new_reply_post_id").nullable()
+
     override val primaryKey = PrimaryKey(idColumn)
 
     suspend fun insert(payload: NotificationPayload): NotificationEntry =
@@ -29,6 +32,10 @@ object NotificationsTable : Table("notifications") {
                     statement[typeColumn] = Type.NewRequest
                     statement[newRequestFromIdColumn] = payload.fromId.long
                     statement[newRequestIsMutualColumn] = payload.isMutual
+                }
+                is NewReply -> {
+                    statement[typeColumn] = Type.NewReply
+                    statement[newReplyPostIdColumn] = payload.postId.long
                 }
             }
         }.resultedValues!![0].toRecord()
@@ -53,10 +60,17 @@ object NotificationsTable : Table("notifications") {
                     ?: error("Invalid ResultRow")
                 NotificationEntry.NewRequest(id, toId, fromId, isMutual)
             }
+            NewReply -> {
+                val postId = this[newReplyPostIdColumn]
+                    ?.let(::CommunityPostId)
+                    ?: error("Invalid ResultRow")
+                NotificationEntry.NewReply(id, toId, postId)
+            }
         }
     }
 
     enum class Type {
         NewRequest,
+        NewReply,
     }
 }
