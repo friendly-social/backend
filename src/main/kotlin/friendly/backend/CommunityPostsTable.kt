@@ -14,6 +14,7 @@ import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.r2dbc.Query
 import org.jetbrains.exposed.v1.r2dbc.andWhere
+import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.update
@@ -118,14 +119,14 @@ object CommunityPostsTable : Table("community_posts") {
     suspend fun selectById(
         ids: List<CommunityPostId>,
         withDeleted: Boolean,
-    ): List<Entry> {
+    ): List<Entry?> {
         val raw = ids.map { id -> id.long }
         val map = selectAll(withDeleted)
             .andWhere { idColumn inList raw }
             .map { row -> row.toEntry() }
             .toList()
             .associateBy { entry -> entry.id }
-        return ids.map { id -> map.getValue(id) }
+        return ids.map { id -> map[id] }
     }
 
     suspend fun selectByDescriptor(
@@ -153,8 +154,12 @@ object CommunityPostsTable : Table("community_posts") {
         }
         .firstOrNull() != null
 
-    suspend fun delete(id: CommunityPostId, ownerId: UserId): Boolean = update(
-        { (idColumn eq id.long) and (plainOwnerIdColumn eq ownerId.long) },
+    suspend fun delete(id: CommunityPostId) {
+        deleteWhere { idColumn eq id.long }
+    }
+
+    suspend fun updateToDeleted(id: CommunityPostId): Boolean = update(
+        { idColumn eq id.long },
     ) { statement ->
         statement[typeColumn] = Type.Deleted
         statement[plainOwnerIdColumn] = null
