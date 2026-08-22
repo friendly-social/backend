@@ -24,9 +24,11 @@ object FirebaseService {
         return try {
             withContext(Dispatchers.IO) {
                 messaging.send(message)
+                println(">>> notification sent $message")
                 true
             }
         } catch (exception: FirebaseMessagingException) {
+            println(">>> notification error $exception")
             when (exception.messagingErrorCode) {
                 UNREGISTERED -> runCatching {
                     unregister(context, firebaseToken)

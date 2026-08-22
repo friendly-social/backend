@@ -24,6 +24,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.SerializationException
@@ -61,7 +62,8 @@ suspend fun main(): Unit = coroutineScope {
             FilesCleanupService.attach(context)
             val server = embeddedServer(port, context)
             addShutdownHook(server, notifications, smtp2go)
-            server.start(wait = true)
+            server.start()
+            awaitCancellation()
         }
     }
 }

@@ -101,20 +101,20 @@ object CommunityService {
             if (path != null && replyTo != null) {
                 CommunityPostsPathTable.insert(id, path + replyTo.id)
             }
-            ActivityService.onPostCreated(
-                context = context,
-                fromId = authorization.id,
-                replyTo = replyToEntry,
-                id = id,
-            )
-            NotificationsService.onPostCreated(
-                context = context,
-                fromId = authorization.id,
-                replyTo = replyToEntry,
-                id = id,
-            )
             id
         } ?: return PostResult.NotFound
+        ActivityService.onPostCreated(
+            context = context,
+            fromId = authorization.id,
+            replyTo = replyToEntry,
+            id = id,
+        )
+        NotificationsService.onPostCreated(
+            context = context,
+            fromId = authorization.id,
+            replyTo = replyToEntry,
+            id = id,
+        )
         val descriptor = CommunityPostDescriptor(id, accessHash)
         return PostResult.Success(descriptor)
     }
@@ -348,13 +348,24 @@ object CommunityService {
         fromId: UserId,
         ids: List<CommunityPostId>,
         withDeleted: Boolean,
-    ): List<CommunityPostDetails> {
+    ): List<CommunityPostDetails?> {
         val entries = suspendTransaction(context.database) {
-            CommunityPostsTable
-                .selectById(ids, withDeleted)
-                .map { post -> post ?: error("entries") }
+            CommunityPostsTable.selectById(ids, withDeleted)
         }
-        return detailsFromEntries(context, fromId, entries)
+        println(">>> ids $ids")
+        println(">>> entries $entries")
+        val details = detailsFromEntries(
+            context = context,
+            fromId = fromId,
+            entries = entries.filterNotNull(),
+        ).iterator()
+        return entries.map { entry ->
+            if (entry == null) {
+                null
+            } else {
+                details.next()
+            }
+        }
     }
 
     suspend fun detailsFromEntries(

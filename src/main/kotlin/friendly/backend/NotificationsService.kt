@@ -34,18 +34,25 @@ object NotificationsService {
 
     fun execute(context: AppContext, notification: NotificationEntry) {
         context.notifications.gracefulScope.launch(start = UNDISPATCHED) {
-            val details = details(context, notification) ?: return@launch
-            val tokens = suspendTransaction(context.database) {
-                TokensTable.select(notification.toId)
-            }
-            context.notifications.queue.execute(notification.toId) {
-                coroutineScope {
-                    for (token in tokens) {
-                        launch {
-                            send(context, token, details)
+            try {
+                println(">>> Details for $notification")
+                val details = details(context, notification) ?: return@launch
+                println(">>> Resulted $details")
+                val tokens = suspendTransaction(context.database) {
+                    TokensTable.select(notification.toId)
+                }
+                context.notifications.queue.execute(notification.toId) {
+                    coroutineScope {
+                        for (token in tokens) {
+                            launch {
+                                send(context, token, details)
+                            }
                         }
                     }
                 }
+            } catch (exception: Exception) {
+                throw exception
+            } finally {
                 markAsSent(context, notification)
             }
         }
@@ -81,7 +88,7 @@ object NotificationsService {
                     ids = listOf(notification.postId),
                     withDeleted = false,
                 ).first()
-                if (post is Deleted) {
+                if (post == null || post is Deleted) {
                     return@suspendTransaction null
                 }
                 NotificationDetails.NewReply(post)
@@ -114,12 +121,13 @@ object NotificationsService {
         replyTo: CommunityPostsTable.Entry?,
         id: CommunityPostId,
     ) {
-        val replyToOwnerId = replyTo?.ownerId ?: return
-        suspendTransaction(context.database) {
+        val replyOwnerId = replyTo?.ownerId ?: return
+        val isNotSelfReply = replyOwnerId != fromId
+        if (isNotSelfReply) {
             schedule(
                 context = context,
                 payload = NotificationPayload.NewReply(
-                    toId = replyToOwnerId,
+                    toId = replyOwnerId,
                     postId = id,
                 ),
             )
