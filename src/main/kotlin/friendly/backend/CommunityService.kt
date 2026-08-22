@@ -161,7 +161,7 @@ object CommunityService {
             .onFailure { return Unauthorized }
         val after = cursorId?.toCommunityPostId { return CursorInvalid }
         val noPost = suspendTransaction(context.database) {
-            !CommunityPostsTable.exists(replyTo, withDeleted = false)
+            !CommunityPostsTable.exists(replyTo, withDeleted = true)
         }
         if (noPost) return NotFound
         val cursor = replies(
@@ -179,7 +179,9 @@ object CommunityService {
         postId: CommunityPostId,
     ): List<CommunityPostDetails> = suspendTransaction(context.database) {
         val path = CommunityPostsPathTable.select(postId)
-        val entries = CommunityPostsTable.selectById(path, withDeleted = true)
+        val entries = CommunityPostsTable
+            .selectById(path, withDeleted = true)
+            .map { post -> post ?: error("entries") }
         detailsFromEntries(context, fromId, entries)
     }
 
@@ -288,17 +290,33 @@ object CommunityService {
         AuthService
             .authorize(context, authorization)
             .onFailure { return Unauthorized }
-        val exists = suspendTransaction(context.database) {
-            val exists = CommunityPostsTable.delete(id, authorization.id)
-            if (exists) {
-                ActivityService.onPostDeleted(context, id)
+
+        suspend fun transaction(): DeleteResult {
+            val post = CommunityPostsTable.selectById(
+                ids = listOf(id),
+                withDeleted = false,
+            ).first() ?: return NotFound
+            if ((post as Plain).ownerId != authorization.id) {
+                return NotFound
             }
-            exists
+            val (replies) = CommunityPostsTable.selectReplies(
+                replyTo = post.id,
+                after = null,
+                limit = 1,
+                withDeleted = true,
+            )
+            if (replies.isEmpty()) {
+                CommunityPostsTable.delete(id)
+            } else {
+                CommunityPostsTable.updateToDeleted(id)
+            }
+            ActivityService.onPostDeleted(context, id)
+            return Success
         }
-        if (!exists) {
-            return NotFound
+
+        return suspendTransaction(context.database) {
+            transaction()
         }
-        return Success
     }
 
     sealed interface EditResult {
@@ -332,7 +350,9 @@ object CommunityService {
         withDeleted: Boolean,
     ): List<CommunityPostDetails> {
         val entries = suspendTransaction(context.database) {
-            CommunityPostsTable.selectById(ids, withDeleted)
+            CommunityPostsTable
+                .selectById(ids, withDeleted)
+                .map { post -> post ?: error("entries") }
         }
         return detailsFromEntries(context, fromId, entries)
     }
