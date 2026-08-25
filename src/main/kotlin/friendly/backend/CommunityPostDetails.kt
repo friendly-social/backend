@@ -6,6 +6,7 @@ sealed interface CommunityPostDetails {
     val id: CommunityPostId
     val accessHash: CommunityPostAccessHash
     val instant: Instant
+    val replyPreviews: List<UserDetails>
 
     fun serializable(): CommunityPostDetailsSerializable
 
@@ -13,6 +14,7 @@ sealed interface CommunityPostDetails {
         override val id: CommunityPostId,
         override val accessHash: CommunityPostAccessHash,
         override val instant: Instant,
+        override val replyPreviews: List<UserDetails>,
         val text: CommunityPostText,
         val owner: UserDetails,
         val edited: Boolean,
@@ -22,6 +24,9 @@ sealed interface CommunityPostDetails {
                 id = id.serializable(),
                 accessHash = accessHash.serializable(),
                 instant = instant,
+                replyPreviews = replyPreviews.map { preview ->
+                    preview.serializable()
+                },
                 text = text.serializable(),
                 owner = owner.serializable(),
                 edited = edited,
@@ -32,12 +37,16 @@ sealed interface CommunityPostDetails {
         override val id: CommunityPostId,
         override val accessHash: CommunityPostAccessHash,
         override val instant: Instant,
+        override val replyPreviews: List<UserDetails>,
     ) : CommunityPostDetails {
         override fun serializable(): CommunityPostDetailsSerializable.Deleted =
             CommunityPostDetailsSerializable.Deleted(
                 id = id.serializable(),
                 accessHash = accessHash.serializable(),
                 instant = instant,
+                replyPreviews = replyPreviews.map { preview ->
+                    preview.serializable()
+                },
             )
     }
 }

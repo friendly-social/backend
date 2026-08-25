@@ -35,9 +35,7 @@ object NotificationsService {
     fun execute(context: AppContext, notification: NotificationEntry) {
         context.notifications.gracefulScope.launch(start = UNDISPATCHED) {
             try {
-                println(">>> Details for $notification")
                 val details = details(context, notification) ?: return@launch
-                println(">>> Resulted $details")
                 val tokens = suspendTransaction(context.database) {
                     TokensTable.select(notification.toId)
                 }
