@@ -263,11 +263,11 @@ object CommunityService {
                 withDeleted = false,
             )
         }
-        val posts = entries.map { record ->
-            record.toPost(
-                ownerIfPlain = { user },
-            )
-        }
+        val posts = detailsFromEntries(
+            context = context,
+            fromId = authorization.id,
+            entries = entries,
+        )
         val nextId = posts.lastOrNull()?.id?.toCursorId()
         val cursor = Cursor(
             data = posts,
@@ -352,8 +352,6 @@ object CommunityService {
         val entries = suspendTransaction(context.database) {
             CommunityPostsTable.selectById(ids, withDeleted)
         }
-        println(">>> ids $ids")
-        println(">>> entries $entries")
         val details = detailsFromEntries(
             context = context,
             fromId = fromId,
@@ -383,20 +381,39 @@ object CommunityService {
                 }
             },
         ).iterator()
+        val replyUserIds = suspendTransaction(context.database) {
+            CommunityPostsTable.selectReplierIds(
+                ids = entries.map { entry -> entry.id },
+            )
+        }
+        val replyUsers = suspendTransaction(context.database) {
+            UsersService.detailsOrThrow(
+                context = context,
+                fromId = fromId,
+                ids = replyUserIds.flatten(),
+            )
+        }.iterator()
+        val replyUserIdsIterator = replyUserIds.iterator()
         return entries.map { entry ->
+            val replyUserIds = replyUserIdsIterator.next()
             entry.toPost(
+                replyPreviews = replyUserIds.map {
+                    replyUsers.next()
+                },
                 ownerIfPlain = { users.next() },
             )
         }
     }
 
     inline fun CommunityPostsTable.Entry.toPost(
+        replyPreviews: List<UserDetails>,
         ownerIfPlain: () -> UserDetails,
     ): CommunityPostDetails = when (this) {
         is Plain -> CommunityPostDetails.Plain(
             id = id,
             accessHash = accessHash,
             instant = instant,
+            replyPreviews = replyPreviews,
             text = text,
             owner = ownerIfPlain(),
             edited = edited,
@@ -405,6 +422,7 @@ object CommunityService {
             id = id,
             accessHash = accessHash,
             instant = instant,
+            replyPreviews = replyPreviews,
         )
     }
 }
