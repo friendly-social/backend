@@ -117,7 +117,7 @@ object CommunityPostsTable : Table("community_posts") {
                         ) as rank
                 FROM replies
         )
-        SELECT reply_to, plain_owner_id from most_recent WHERE rank < 5;
+        SELECT reply_to, plain_owner_id from most_recent WHERE rank <= 10;
         """.trimIndent()
         val arg = ArrayColumnType<_, List<Any?>>(LongColumnType()) to rawIds
         val results = TransactionManager.current().exec(
