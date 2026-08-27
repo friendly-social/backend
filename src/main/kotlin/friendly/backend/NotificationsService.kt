@@ -5,6 +5,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
+import org.slf4j.LoggerFactory
+
+private val logger = LoggerFactory.getLogger("NotificationsService")
 
 /**
  * NotificationsService will support any types of notifications and is a
@@ -48,7 +51,9 @@ object NotificationsService {
                         }
                     }
                 }
+                logger.info("Notification sent: $details")
             } catch (exception: Exception) {
+                logger.info("Notification error: $exception")
                 throw exception
             } finally {
                 markAsSent(context, notification)
