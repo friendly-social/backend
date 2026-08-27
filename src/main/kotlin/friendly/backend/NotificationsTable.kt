@@ -1,5 +1,6 @@
 package friendly.backend
 
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -8,11 +9,13 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.selectAll
+import org.jetbrains.exposed.v1.r2dbc.update
 
 object NotificationsTable : Table("notifications") {
     private val idColumn = long("id").autoIncrement()
     private val typeColumn = enumeration<Type>("type")
     private val toIdColumn = long("to_id")
+    private val isPendingColumn = bool("is_pending").default(true)
 
     private val newRequestFromIdColumn =
         long("new_request_from_id").nullable()
@@ -38,17 +41,29 @@ object NotificationsTable : Table("notifications") {
                     statement[newReplyPostIdColumn] = payload.postId.long
                 }
             }
-        }.resultedValues!![0].toRecord()
+        }.resultedValues!![0].toEntry()
 
-    suspend fun select(): List<NotificationEntry> = selectAll()
-        .map { row -> row.toRecord() }
+    suspend fun selectPending(): List<NotificationEntry> = selectAll()
+        .where { isPendingColumn eq true }
+        .map { row -> row.toEntry() }
         .toList()
 
-    suspend fun delete(id: NotificationId) {
-        deleteWhere { idColumn eq id.long }
+    suspend fun selectById(id: NotificationId): NotificationEntry? = selectAll()
+        .where { idColumn eq id.long }
+        .map { row -> row.toEntry() }
+        .firstOrNull()
+
+    suspend fun markAsSent(id: NotificationId) {
+        update({ idColumn eq id.long }) { statement ->
+            statement[isPendingColumn] = false
+        }
     }
 
-    private fun ResultRow.toRecord(): NotificationEntry {
+    suspend fun deleteReplies(id: CommunityPostId) {
+        deleteWhere { newReplyPostIdColumn eq id.long }
+    }
+
+    private fun ResultRow.toEntry(): NotificationEntry {
         val id = NotificationId(this[idColumn])
         val toId = UserId(this[toIdColumn])
         return when (this[typeColumn]) {

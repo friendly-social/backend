@@ -4,8 +4,6 @@ import com.google.firebase.messaging.FirebaseMessagingException
 import com.google.firebase.messaging.Message
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import org.slf4j.LoggerFactory
 
@@ -15,24 +13,22 @@ object FirebaseService {
     suspend fun send(
         context: AppContext,
         firebaseToken: FirebaseToken,
-        notification: NotificationDetails,
+        id: NotificationId,
     ): Boolean {
         val messaging = context.firebase.messaging
-        val serializable = notification.serializable()
-        val string = Json.encodeToString(serializable)
         val message = Message.builder()
-            .putData("details", string)
+            .putData("id", "${id.long}")
             .setToken(firebaseToken.string)
             .build()
-        logger.info("Send: $notification")
+        logger.info("Send: $id")
         return try {
             withContext(Dispatchers.IO) {
                 messaging.send(message)
-                logger.info("Sent: $notification")
+                logger.info("Sent: $id")
                 true
             }
         } catch (exception: FirebaseMessagingException) {
-            logger.info("Error: $notification")
+            logger.info("Error: $id")
             exception.printStackTrace()
             when (exception.messagingErrorCode) {
                 UNREGISTERED -> runCatching {

@@ -27,7 +27,7 @@ object NotificationsService {
     fun restoreScheduled(context: AppContext) {
         context.notifications.gracefulScope.launch {
             val pending = suspendTransaction(context.database) {
-                NotificationsTable.select()
+                NotificationsTable.selectPending()
             }
             for (notification in pending) {
                 execute(context, notification)
@@ -38,11 +38,6 @@ object NotificationsService {
     fun execute(context: AppContext, notification: NotificationEntry) {
         context.notifications.gracefulScope.launch(start = UNDISPATCHED) {
             try {
-                val details = details(context, notification)
-                if (details == null) {
-                    logger.info("Cannot get details for $notification")
-                    return@launch
-                }
                 val tokens = suspendTransaction(context.database) {
                     TokensTable.select(notification.toId)
                 }
@@ -50,12 +45,12 @@ object NotificationsService {
                     coroutineScope {
                         for (token in tokens) {
                             launch {
-                                send(context, token, details)
+                                send(context, token, notification.id)
                             }
                         }
                     }
                 }
-                logger.info("Notification sent: $details")
+                logger.info("Notification sent: $notification")
             } catch (exception: Exception) {
                 logger.info("Notification error: $exception")
                 throw exception
@@ -68,57 +63,55 @@ object NotificationsService {
     suspend fun send(
         context: AppContext,
         token: TokensTable.Entry,
-        notification: NotificationDetails,
+        id: NotificationId,
     ) {
         val firebaseToken = token.firebaseToken ?: return
         exponentialRetry {
-            FirebaseService.send(context, firebaseToken, notification)
+            FirebaseService.send(context, firebaseToken, id)
         }
+    }
+
+    sealed interface DetailsResult {
+        data object Unauthorized : DetailsResult
+        data object NotFound : DetailsResult
+        data class Success(val details: NotificationDetails) : DetailsResult
     }
 
     suspend fun details(
         context: AppContext,
-        notification: NotificationEntry,
-    ): NotificationDetails? = suspendTransaction(context.database) {
-        when (notification) {
-            is NewRequest -> {
-                val ids = listOf(notification.fromId)
-                val from = UsersService
-                    .details(context, notification.toId, ids)
-                    .first() ?: error("User is required to be found")
-                NotificationDetails.NewRequest(
-                    from = NotificationDetails.NewRequest.From(
-                        id = from.id,
-                        accessHash = from.accessHash,
-                        avatar = from.avatar,
-                        nickname = from.nickname,
-                    ),
-                    isMutual = notification.isMutual,
-                )
+        authorization: Authorization,
+        id: NotificationId,
+    ): DetailsResult {
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return Unauthorized }
+        return suspendTransaction(context.database) {
+            val notification = NotificationsTable.selectById(id)
+            if (notification == null) {
+                return@suspendTransaction DetailsResult.NotFound
             }
-            is NewReply -> {
-                val post = CommunityService.detailsFromIds(
-                    context = context,
-                    fromId = notification.toId,
-                    ids = listOf(notification.postId),
-                    withDeleted = false,
-                ).first() as Plain?
-                if (post == null) {
-                    return@suspendTransaction null
+            val details = when (notification) {
+                is NewRequest -> {
+                    val ids = listOf(notification.fromId)
+                    val from = UsersService
+                        .details(context, notification.toId, ids)
+                        .first() ?: error("User is required to be found")
+                    NotificationDetails.NewRequest(from, notification.isMutual)
                 }
-                NotificationDetails.NewReply(
-                    id = post.id,
-                    accessHash = post.accessHash,
-                    owner = NotificationDetails.NewReply.Owner(
-                        id = post.owner.id,
-                        accessHash = post.owner.accessHash,
-                        avatar = post.owner.avatar,
-                        nickname = post.owner.nickname,
-                    ),
-                    textPreview = NotificationDetails.NewReply.TextPreview
-                        .orTrim(post.text.string),
-                )
+                is NewReply -> {
+                    val post = CommunityService.detailsFromIds(
+                        context = context,
+                        fromId = notification.toId,
+                        ids = listOf(notification.postId),
+                        withDeleted = false,
+                    ).first() as Plain?
+                    if (post == null) {
+                        return@suspendTransaction NotFound
+                    }
+                    NotificationDetails.NewReply(post)
+                }
             }
+            DetailsResult.Success(details)
         }
     }
 
@@ -137,7 +130,7 @@ object NotificationsService {
         notification: NotificationEntry,
     ) {
         suspendTransaction(context.database) {
-            NotificationsTable.delete(notification.id)
+            NotificationsTable.markAsSent(notification.id)
         }
     }
 
@@ -157,6 +150,12 @@ object NotificationsService {
                     postId = id,
                 ),
             )
+        }
+    }
+
+    suspend fun onPostDeleted(context: AppContext, postId: CommunityPostId) {
+        suspendTransaction(context.database) {
+            NotificationsTable.deleteReplies(postId)
         }
     }
 }
