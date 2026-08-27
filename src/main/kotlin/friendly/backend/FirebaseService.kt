@@ -7,6 +7,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
+import org.slf4j.LoggerFactory
+
+private val logger = LoggerFactory.getLogger("FirebaseService")
 
 object FirebaseService {
     suspend fun send(
@@ -17,16 +20,22 @@ object FirebaseService {
         val messaging = context.firebase.messaging
         val serializable = notification.serializable()
         val string = Json.encodeToString(serializable)
+        logger.info(string)
+        logger.info("${string.length}")
         val message = Message.builder()
             .putData("details", string)
             .setToken(firebaseToken.string)
             .build()
+        logger.info("Send: $notification")
         return try {
             withContext(Dispatchers.IO) {
                 messaging.send(message)
+                logger.info("Sent: $notification")
                 true
             }
         } catch (exception: FirebaseMessagingException) {
+            logger.info("Error: $notification")
+            exception.printStackTrace()
             when (exception.messagingErrorCode) {
                 UNREGISTERED -> runCatching {
                     unregister(context, firebaseToken)

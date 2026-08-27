@@ -38,7 +38,11 @@ object NotificationsService {
     fun execute(context: AppContext, notification: NotificationEntry) {
         context.notifications.gracefulScope.launch(start = UNDISPATCHED) {
             try {
-                val details = details(context, notification) ?: return@launch
+                val details = details(context, notification)
+                if (details == null) {
+                    logger.info("Cannot get details for $notification")
+                    return@launch
+                }
                 val tokens = suspendTransaction(context.database) {
                     TokensTable.select(notification.toId)
                 }
