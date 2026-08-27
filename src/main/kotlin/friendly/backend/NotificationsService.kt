@@ -86,7 +86,15 @@ object NotificationsService {
                 val from = UsersService
                     .details(context, notification.toId, ids)
                     .first() ?: error("User is required to be found")
-                NotificationDetails.NewRequest(from, notification.isMutual)
+                NotificationDetails.NewRequest(
+                    from = NotificationDetails.NewRequest.From(
+                        id = from.id,
+                        accessHash = from.accessHash,
+                        avatar = from.avatar,
+                        nickname = from.nickname,
+                    ),
+                    isMutual = notification.isMutual,
+                )
             }
             is NewReply -> {
                 val post = CommunityService.detailsFromIds(
@@ -94,11 +102,22 @@ object NotificationsService {
                     fromId = notification.toId,
                     ids = listOf(notification.postId),
                     withDeleted = false,
-                ).first()
-                if (post == null || post is Deleted) {
+                ).first() as Plain?
+                if (post == null) {
                     return@suspendTransaction null
                 }
-                NotificationDetails.NewReply(post)
+                NotificationDetails.NewReply(
+                    id = post.id,
+                    accessHash = post.accessHash,
+                    owner = NotificationDetails.NewReply.Owner(
+                        id = post.owner.id,
+                        accessHash = post.owner.accessHash,
+                        avatar = post.owner.avatar,
+                        nickname = post.owner.nickname,
+                    ),
+                    textPreview = NotificationDetails.NewReply.TextPreview
+                        .orTrim(post.text.string),
+                )
             }
         }
     }

@@ -20,8 +20,6 @@ object FirebaseService {
         val messaging = context.firebase.messaging
         val serializable = notification.serializable()
         val string = Json.encodeToString(serializable)
-        logger.info(string)
-        logger.info("${string.length}")
         val message = Message.builder()
             .putData("details", string)
             .setToken(firebaseToken.string)
@@ -40,6 +38,10 @@ object FirebaseService {
                 UNREGISTERED -> runCatching {
                     unregister(context, firebaseToken)
                 }.isSuccess
+                INVALID_ARGUMENT -> {
+                    logger.info("Invalid argument: $exception")
+                    true
+                }
                 else -> false
             }
         }
