@@ -9,6 +9,7 @@ import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.upsert
 
 object FriendsTable : Table("friends") {
+    val idColumn = long("id").autoIncrement()
     val fromIdColumn = long("from_id")
     val toIdColumn = long("to_id")
     val decisionColumn = enumeration<Decision>("decision")
@@ -40,6 +41,7 @@ object FriendsTable : Table("friends") {
      */
     suspend fun selectOutgoing(fromIds: List<UserId>): List<Entry> = selectAll()
         .where(fromIdColumn inList fromIds.map(UserId::long))
+        .orderBy(idColumn, DESC)
         .map { row -> row.toEntry() }
         .toList()
 
@@ -48,6 +50,7 @@ object FriendsTable : Table("friends") {
      */
     suspend fun selectIncoming(toIds: List<UserId>): List<Entry> = selectAll()
         .where(toIdColumn inList toIds.map(UserId::long))
+        .orderBy(idColumn, DESC)
         .map { row -> row.toEntry() }
         .toList()
 
