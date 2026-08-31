@@ -108,6 +108,7 @@ private fun embeddedServer(
         CommunityRouting.from(context)
         CommunityRouting.details(context)
         ActivityRouting.list(context)
+        ActivityRouting.read(context)
         NotificationsRouting.details(context)
     }
 }

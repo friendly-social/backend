@@ -41,6 +41,30 @@ object ActivityService {
         }
     }
 
+    sealed interface ReadResult {
+        data object Unauthorized : ReadResult
+        data object NotFound : ReadResult
+        data object Success : ReadResult
+    }
+
+    suspend fun read(
+        context: AppContext,
+        authorization: Authorization,
+        id: ActivityId,
+    ): ReadResult {
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return Unauthorized }
+        return suspendTransaction(context.database) {
+            val activity = ActivityTable.selectById(listOf(id)).first()
+            if (activity == null || activity.toId != authorization.id) {
+                return@suspendTransaction NotFound
+            }
+            ActivityTable.markAsRead(id)
+            Success
+        }
+    }
+
     suspend fun details(
         context: AppContext,
         fromId: UserId,
@@ -59,6 +83,7 @@ object ActivityService {
                 is Reply -> ActivityDetails.Reply(
                     id = entry.id,
                     instant = entry.instant,
+                    isRead = entry.isRead,
                     post = posts.next() as Plain,
                 )
             }
