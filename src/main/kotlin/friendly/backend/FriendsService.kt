@@ -147,7 +147,7 @@ object FriendsService {
                     descriptor,
                     descriptor.swap(),
                 ),
-            )
+            ).map { entry -> entry?.decision }
         }
         val shouldSendNotification = outgoing == null
         if (shouldSendNotification) {
@@ -245,18 +245,20 @@ object FriendsService {
         suspendTransaction(context.database) {
             val outgoingEntries = FriendsTable
                 .selectOutgoing(listOf(fromId))
-                .asReversed()
-            val outgoingDescriptors = outgoingEntries
                 .filter { entry -> entry.decision == Request }
-                .map { entry -> entry.descriptor }
-            val incomingDescriptors = outgoingDescriptors
-                .map { descriptor -> descriptor.swap() }
-            val incomingDecisions = FriendsTable
-                .select(incomingDescriptors)
-                .iterator()
-            val mutualFriends = outgoingDescriptors
-                .filter { incomingDecisions.next() == Request }
-                .map { descriptor -> descriptor.toId }
+            val incomingEntries = FriendsTable.select(
+                descriptors = outgoingEntries.map { entry ->
+                    entry.descriptor.swap()
+                },
+            )
+            val mutualFriends = outgoingEntries.zip(incomingEntries)
+                .filter { (_, incoming) ->
+                    incoming?.decision == Request
+                }
+                .sortedByDescending { (outgoing, incoming) ->
+                    maxOf(outgoing.id.long, incoming!!.id.long)
+                }
+                .map { (outgoing) -> outgoing.toId }
             mutualFriends
         }
 
@@ -270,6 +272,6 @@ object FriendsService {
             FriendsTable.select(
                 descriptors = listOf(descriptor, descriptor.swap()),
             )
-        }.all { decision -> decision == Request }
+        }.all { entry -> entry?.decision == Request }
     }
 }

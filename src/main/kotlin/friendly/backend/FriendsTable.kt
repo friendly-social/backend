@@ -24,7 +24,7 @@ object FriendsTable : Table("friends") {
         }
     }
 
-    suspend fun select(descriptors: List<Descriptor>): List<Decision?> {
+    suspend fun select(descriptors: List<Descriptor>): List<Entry?> {
         val pairs = descriptors.map { (fromId, toId) ->
             fromId.long to toId.long
         }
@@ -33,7 +33,7 @@ object FriendsTable : Table("friends") {
             .map { row -> row.toEntry() }
             .toList()
             .associateBy(Entry::descriptor)
-        return descriptors.map { descriptor -> results[descriptor]?.decision }
+        return descriptors.map { descriptor -> results[descriptor] }
     }
 
     /**
@@ -59,10 +59,13 @@ object FriendsTable : Table("friends") {
     }
 
     data class Entry(
+        val id: Id,
         val fromId: UserId,
         val toId: UserId,
         val decision: Decision,
     ) {
+        data class Id(val long: Long)
+
         val descriptor: Descriptor get() = Descriptor(fromId, toId)
     }
 
@@ -72,6 +75,7 @@ object FriendsTable : Table("friends") {
     }
 
     private fun ResultRow.toEntry(): Entry = Entry(
+        id = Entry.Id(this[idColumn]),
         fromId = UserId(this[fromIdColumn]),
         toId = UserId(this[toIdColumn]),
         decision = this[decisionColumn],

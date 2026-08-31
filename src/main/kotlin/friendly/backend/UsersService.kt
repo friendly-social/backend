@@ -141,7 +141,9 @@ object UsersService {
             listOf(outgoing, incoming)
         }
         val decisions = FriendsTable.select(descriptors)
-        return decisions.chunked(2).map { (outgoing, incoming) ->
+        return decisions.chunked(2).map { (outgoingEntry, incomingEntry) ->
+            val outgoing = outgoingEntry?.decision
+            val incoming = incomingEntry?.decision
             when {
                 outgoing == Request && incoming == Request -> Friends
                 outgoing == Request -> OutgoingRequest
