@@ -60,6 +60,7 @@ object FeedService {
                     details = details,
                 )
             }
+            .sortedByDescending { entry -> entry.scoreMoreFilledFirst() }
         val extendedNetwork = extendedNetworkRaw
             .map { (_, fromId, toId) -> fromId to users[toId]!! }
             .groupBy { (_, to) -> to }
@@ -71,6 +72,7 @@ object FeedService {
                     details = details,
                 )
             }
+            .sortedByDescending { entry -> entry.scoreMoreFilledFirst() }
         var entries = neighboringNetwork + extendedNetwork
         entries = entries.filter { entry ->
             incoming[entry.details.id] == Request
@@ -79,5 +81,53 @@ object FeedService {
         }
         val feed = FeedQueue(entries)
         return QueueResult.Success(feed)
+    }
+
+    /**
+     * Sorting mask:
+     *
+     * X00_000 - whether user has avatar attached or not
+     * 0XX_XXX - how many common friends there are
+     * 0X0_000 - whether user has email attached or not
+     * 0X0_000 - whether user has social link or not
+     * 00X_XXX - how filled is user description, half of that if >= than 100 chars
+     * 00X_XXX - how filled are interests, half of that if >= than 3 interests
+     */
+    private fun FeedQueue.Entry.scoreMoreFilledFirst(): Int {
+        var score = 0
+
+        if (details.avatar != null) {
+            score += 100_000
+        }
+
+        if (details.email != null) {
+            score += 10_000
+        }
+
+        if (details.socialLink != null) {
+            score += 10_000
+        }
+
+        score += commonFriends.size * 10_000
+
+        score += run {
+            val string = details.description.string
+            val maxScore = 1_000
+            val firstHalf = if (string.length >= 100) maxScore / 2 else 0
+            val secondHalf =
+                1.0 * string.length / UserDescription.MaxLength * maxScore / 2
+            (firstHalf + secondHalf).toInt()
+        }
+
+        score += run {
+            val list = details.interests.raw
+            val maxScore = 1_000
+            val firstHalf = if (list.size >= 3) maxScore / 2 else 0
+            val secondHalf =
+                1.0 * list.size / InterestList.MaxSize * maxScore / 2
+            (firstHalf + secondHalf).toInt()
+        }
+
+        return score
     }
 }
