@@ -27,7 +27,7 @@ object ActivityService {
                 limit = 100,
             )
             val nextId = if (hasNext) {
-                CursorId("${entries.last().id}")
+                CursorId("${entries.last().id.long}")
             } else {
                 null
             }
