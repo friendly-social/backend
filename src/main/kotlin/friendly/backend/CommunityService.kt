@@ -137,7 +137,7 @@ object CommunityService {
             CommunityPostsTable.selectReplies(
                 replyTo = replyTo,
                 after = after,
-                limit = 1000,
+                limit = 100,
                 withDeleted = true,
             )
         }
