@@ -1,6 +1,8 @@
 package friendly.backend
 
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 
 object FeedService {
     sealed interface QueueResult {
@@ -18,8 +20,7 @@ object FeedService {
         val outgoing = suspendTransaction(context.database) {
             FriendsTable
                 .selectOutgoing(fromIds = listOf(authorization.id))
-                .map { entry -> entry.toId }
-                .toSet()
+                .associateBy { entry -> entry.toId }
         }
         val incoming = suspendTransaction(context.database) {
             FriendsTable
@@ -31,7 +32,9 @@ object FeedService {
             fromId = authorization.id,
             maxDegrees = NetworkDegree.Four,
         )
-            .filter { connection -> connection.toId !in outgoing }
+            .filter { connection ->
+                filterOutgoingWithForgettingCurve(context, connection, outgoing)
+            }
             .groupBy { (degree) -> degree }
         val neighboringNetworkRaw =
             network.getOrElse(NetworkDegree.Two) { emptyList() }
@@ -81,6 +84,44 @@ object FeedService {
         }
         val feed = FeedQueue(entries)
         return QueueResult.Success(feed)
+    }
+
+    /**
+     * Filters out connections that were already answered with Request,
+     * OR applies forgetting curve if decision was Decline.
+     */
+    private fun filterOutgoingWithForgettingCurve(
+        context: AppContext,
+        connection: NetworkConnection,
+        outgoing: Map<UserId, FriendsTable.Entry>,
+    ): Boolean {
+        val entry = outgoing[connection.toId] ?: return true
+        return when (entry.decision) {
+            Request -> false
+            Decline -> {
+                val forgetIn = getExpectedForgetDuration(
+                    declineTimes = entry.declineTimes,
+                    declineForgetRandom = entry.declineForgetRandom,
+                )
+                entry.instant + forgetIn < context.clock.now()
+            }
+        }
+    }
+
+    fun getExpectedForgetDuration(
+        declineTimes: Int,
+        declineForgetRandom: Duration,
+    ): Duration {
+        require(declineTimes > 0) {
+            "Can't get forget duration if wasn't declined"
+        }
+        val baseForget = when (declineTimes) {
+            1 -> 30.days
+            2 -> 90.days
+            3 -> 360.days
+            else -> 720.days
+        }
+        return baseForget + declineForgetRandom
     }
 
     /**

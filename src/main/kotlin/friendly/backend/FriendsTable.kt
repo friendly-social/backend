@@ -5,22 +5,39 @@ import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.datetime.duration
+import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.upsert
+import kotlin.time.Duration
+import kotlin.time.Instant
 
 object FriendsTable : Table("friends") {
     val idColumn = long("id").autoIncrement()
     val fromIdColumn = long("from_id")
     val toIdColumn = long("to_id")
     val decisionColumn = enumeration<Decision>("decision")
+    val declineTimesColumn = integer("decline_times")
+    val declineForgetRandomColumn = duration("decline_forget_random")
+    val instantColumn = timestamp("instant")
 
     override val primaryKey = PrimaryKey(fromIdColumn, toIdColumn)
 
-    suspend fun upsert(fromId: UserId, toId: UserId, decision: Decision) {
+    suspend fun upsert(
+        fromId: UserId,
+        toId: UserId,
+        decision: Decision,
+        declineTimes: Int,
+        declineForgetRandom: Duration,
+        instant: Instant,
+    ) {
         upsert { statement ->
             statement[fromIdColumn] = fromId.long
             statement[toIdColumn] = toId.long
             statement[decisionColumn] = decision
+            statement[declineTimesColumn] = declineTimes
+            statement[declineForgetRandomColumn] = declineForgetRandom
+            statement[instantColumn] = instant
         }
     }
 
@@ -63,6 +80,9 @@ object FriendsTable : Table("friends") {
         val fromId: UserId,
         val toId: UserId,
         val decision: Decision,
+        val declineTimes: Int,
+        val declineForgetRandom: Duration,
+        val instant: Instant,
     ) {
         data class Id(val long: Long)
 
@@ -79,5 +99,8 @@ object FriendsTable : Table("friends") {
         fromId = UserId(this[fromIdColumn]),
         toId = UserId(this[toIdColumn]),
         decision = this[decisionColumn],
+        declineTimes = this[declineTimesColumn],
+        declineForgetRandom = this[declineForgetRandomColumn],
+        instant = this[instantColumn],
     )
 }

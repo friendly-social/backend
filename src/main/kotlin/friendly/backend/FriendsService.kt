@@ -1,6 +1,8 @@
 package friendly.backend
 
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.milliseconds
 
 object FriendsService {
 
@@ -79,11 +81,17 @@ object FriendsService {
                     fromId = authorization.id,
                     toId = userId,
                     decision = Request,
+                    declineTimes = 0,
+                    declineForgetRandom = 0.milliseconds,
+                    instant = context.clock.now(),
                 )
                 FriendsTable.upsert(
                     fromId = userId,
                     toId = authorization.id,
                     decision = Request,
+                    declineTimes = 0,
+                    declineForgetRandom = 0.milliseconds,
+                    instant = context.clock.now(),
                 )
                 Success
             } else {
@@ -110,11 +118,17 @@ object FriendsService {
                 fromId = authorization.id,
                 toId = userId,
                 decision = Request,
+                declineTimes = 0,
+                declineForgetRandom = 0.milliseconds,
+                instant = context.clock.now(),
             )
             FriendsTable.upsert(
                 fromId = userId,
                 toId = authorization.id,
                 decision = Request,
+                declineTimes = 0,
+                declineForgetRandom = 0.milliseconds,
+                instant = context.clock.now(),
             )
         }
         return true
@@ -166,6 +180,9 @@ object FriendsService {
                 fromId = authorization.id,
                 toId = userId,
                 decision = Request,
+                declineTimes = 0,
+                declineForgetRandom = 0.milliseconds,
+                instant = context.clock.now(),
             )
             RequestResult.Success
         }
@@ -191,11 +208,23 @@ object FriendsService {
         }
         getUser(context, authorization, userId, userAccessHash)
             ?: return DeclineResult.NotFound
+        val declineForgetRandom = (0..30).random(context.random).days
         return suspendTransaction(context.database) {
+            val declineTimes = FriendsTable.select(
+                listOf(
+                    FriendsTable.Descriptor(
+                        fromId = authorization.id,
+                        toId = userId,
+                    ),
+                ),
+            ).first()?.declineTimes ?: 0
             FriendsTable.upsert(
                 fromId = authorization.id,
                 toId = userId,
                 decision = Decline,
+                declineTimes = declineTimes + 1,
+                declineForgetRandom = declineForgetRandom,
+                instant = context.clock.now(),
             )
             DeclineResult.Success
         }
