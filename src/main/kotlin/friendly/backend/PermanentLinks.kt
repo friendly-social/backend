@@ -19,7 +19,14 @@ object PermanentLinks {
         userId = UserId(905),
     )
 
-    val Entries = listOf(Vestibule, Ru)
+    val Flat = Record(
+        token = FriendToken.orThrow(
+            "FLAT_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+        ),
+        userId = UserId(1175),
+    )
+
+    val Entries = listOf(Vestibule, Ru, Flat)
 
     data class Record(val token: FriendToken, val userId: UserId)
 }
