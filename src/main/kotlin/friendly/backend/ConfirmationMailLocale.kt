@@ -1,16 +1,19 @@
 package friendly.backend
 
 sealed interface ConfirmationMailLocale {
-    val subject: EmailSubject
+    fun subject(code: String): EmailSubject
     val resourceName: String
 
     data object En : ConfirmationMailLocale {
-        override val subject = EmailSubject("Friendly: Confirm email-address")
+        override fun subject(code: String) =
+            EmailSubject("Friendly: Use $code to confirm email-address")
         override val resourceName = "/confirmation.email.en.html"
     }
 
     data object Ru : ConfirmationMailLocale {
-        override val subject = EmailSubject("Friendly: Подтвердите email-адрес")
+        override fun subject(code: String) = EmailSubject(
+            "Friendly: Введите $code и подтвердите email-адрес",
+        )
         override val resourceName = "/confirmation.email.ru.html"
     }
 

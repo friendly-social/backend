@@ -13,21 +13,13 @@ object AuthMailService {
         val javaClass = AuthMailService::class.java
         val htmlTemplate = javaClass.getResource(locale.resourceName).readText()
         val htmlMessageFormat = MessageFormat(htmlTemplate)
-        val args = arrayOf(
-            loginCode[0],
-            loginCode[1],
-            loginCode[2],
-            loginCode[3],
-            loginCode[4],
-            loginCode[5],
-            loginCode[6],
-            loginCode[7],
-        )
+        val stringified = "${loginCode.int / 10_000}-${loginCode.int % 10_000}"
+        val args = arrayOf(stringified)
         val html = htmlMessageFormat.format(args)
         Smtp2goService.send(
             context = context,
             to = listOf(email),
-            subject = locale.subject,
+            subject = locale.subject(stringified),
             html = EmailHtml(html),
         )
     }

@@ -3,15 +3,6 @@ package friendly.backend
 import kotlin.random.Random
 
 data class ConfirmationCode private constructor(val int: Int) {
-    operator fun get(index: Int): Int {
-        require(index in 0..<8)
-        var result = int
-        repeat(7 - index) {
-            result /= 10
-        }
-        return result % 10
-    }
-
     fun serializable(): ConfirmationCodeSerializable =
         ConfirmationCodeSerializable(int)
 

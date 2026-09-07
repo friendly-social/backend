@@ -13,21 +13,14 @@ object ConfirmationMailService {
         val javaClass = ConfirmationMailService::class.java
         val htmlTemplate = javaClass.getResource(locale.resourceName).readText()
         val htmlMessageFormat = MessageFormat(htmlTemplate)
-        val args = arrayOf(
-            confirmationCode[0],
-            confirmationCode[1],
-            confirmationCode[2],
-            confirmationCode[3],
-            confirmationCode[4],
-            confirmationCode[5],
-            confirmationCode[6],
-            confirmationCode[7],
-        )
+        val stringified =
+            "${confirmationCode.int / 10_000}-${confirmationCode.int % 10_000}"
+        val args = arrayOf(stringified)
         val html = htmlMessageFormat.format(args)
         Smtp2goService.send(
             context = context,
             to = listOf(email),
-            subject = locale.subject,
+            subject = locale.subject(stringified),
             html = EmailHtml(html),
         )
     }
