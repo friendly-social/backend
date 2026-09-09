@@ -8,7 +8,7 @@ object CommunityService {
         data object NotFound : DetailsResult
         data class Success(
             val post: CommunityPostDetails,
-            val replies: Cursor<CommunityPostDetails>,
+            val replies: Cursor<CommunityPostReply>,
             val upstream: List<CommunityPostDetails>,
         ) : DetailsResult
     }
@@ -83,7 +83,9 @@ object CommunityService {
         val accessHash = CommunityPostAccessHash.random(context.random)
         val id = suspendTransaction(context.database) {
             val path = if (replyTo != null) {
-                CommunityPostsPathTable.select(postId = replyTo.id).apply {
+                CommunityPostsPathTable.selectUpstream(
+                    postId = replyTo.id,
+                ).apply {
                     if (size >= MAX_DEPTH) {
                         return@suspendTransaction null
                     }
@@ -123,7 +125,7 @@ object CommunityService {
         data object Unauthorized : RepliesResult
         data object CursorInvalid : RepliesResult
         data object NotFound : RepliesResult
-        data class Success(val cursor: Cursor<CommunityPostDetails>) :
+        data class Success(val cursor: Cursor<CommunityPostReply>) :
             RepliesResult
     }
 
@@ -132,7 +134,7 @@ object CommunityService {
         fromId: UserId,
         replyTo: CommunityPostId,
         after: CommunityPostId?,
-    ): Cursor<CommunityPostDetails> {
+    ): Cursor<CommunityPostReply> {
         val (entries, hasNext) = suspendTransaction(context.database) {
             CommunityPostsTable.selectReplies(
                 replyTo = replyTo,
@@ -142,12 +144,47 @@ object CommunityService {
             )
         }
         val posts = detailsFromEntries(context, fromId, entries)
-        val nextId = posts.lastOrNull()?.id?.toCursorId()
-        val cursor = Cursor(
-            data = posts,
-            nextId = nextId.takeIf { hasNext },
+        if (posts.size != 1) {
+            val nextId = posts.lastOrNull()?.id?.toCursorId()
+            return Cursor(
+                data = posts.map { post ->
+                    CommunityPostReply.Single(post)
+                },
+                nextId = nextId.takeIf { hasNext },
+            )
+        }
+        val post = posts.first()
+        val replies = suspendTransaction(context.database) {
+            CommunityPostsPathTable
+                .selectReplies(post.id)
+                .groupBy { entry -> entry.depth }
+        }
+        val threadIds = replies.keys
+            .sorted()
+            .takeWhile { depth -> replies.getValue(depth).size == 1 }
+            .map { depth -> replies.getValue(depth).single().postId }
+        if (threadIds.isEmpty()) {
+            return Cursor(
+                data = listOf(
+                    CommunityPostReply.Single(post),
+                ),
+                nextId = null,
+            )
+        }
+        val thread = detailsFromIds(
+            context = context,
+            fromId = fromId,
+            ids = threadIds,
+            withDeleted = true,
+        ).map { details -> details ?: error("Cannot find all posts") }
+        return Cursor(
+            data = listOf(
+                CommunityPostReply.Thread(
+                    thread = listOf(post) + thread,
+                ),
+            ),
+            nextId = null,
         )
-        return cursor
     }
 
     suspend fun replies(
@@ -178,7 +215,7 @@ object CommunityService {
         fromId: UserId,
         postId: CommunityPostId,
     ): List<CommunityPostDetails> = suspendTransaction(context.database) {
-        val path = CommunityPostsPathTable.select(postId)
+        val path = CommunityPostsPathTable.selectUpstream(postId)
         val entries = CommunityPostsTable
             .selectById(path, withDeleted = true)
             .map { post -> post ?: error("entries") }

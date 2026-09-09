@@ -2,6 +2,7 @@ package friendly.backend
 
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
+import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.r2dbc.batchInsert
@@ -22,10 +23,29 @@ object CommunityPostsPathTable : Table("community_posts_path") {
         }
     }
 
-    suspend fun select(postId: CommunityPostId): List<CommunityPostId> =
+    suspend fun selectUpstream(postId: CommunityPostId): List<CommunityPostId> =
         selectAll()
             .where { postIdColumn eq postId.long }
             .orderBy(depthColumn)
             .toList()
             .map { row -> CommunityPostId(row[replyToColumn]) }
+
+    suspend fun selectReplies(postId: CommunityPostId): List<Entry> =
+        selectAll()
+            .where { replyToColumn eq postId.long }
+            .orderBy(depthColumn)
+            .toList()
+            .map { row -> row.toEntry() }
+
+    private fun ResultRow.toEntry(): Entry = Entry(
+        postId = CommunityPostId(this[postIdColumn]),
+        replyTo = CommunityPostId(this[replyToColumn]),
+        depth = this[depthColumn],
+    )
+
+    data class Entry(
+        val postId: CommunityPostId,
+        val replyTo: CommunityPostId,
+        val depth: Long,
+    )
 }
