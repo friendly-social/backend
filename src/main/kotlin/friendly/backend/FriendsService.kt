@@ -303,4 +303,16 @@ object FriendsService {
             )
         }.all { entry -> entry?.decision == Request }
     }
+
+    suspend fun isReachable(
+        context: AppContext,
+        first: UserId,
+        second: UserId,
+    ): Boolean {
+        if (areFriends(context, first, second)) {
+            return true
+        }
+        val commonFriends = commonFriendIds(context, first, second)
+        return commonFriends.isNotEmpty()
+    }
 }

@@ -1,5 +1,6 @@
 package friendly.backend
 
+import friendly.backend.communitypostentity.CommunityPostEntitySerializable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
@@ -23,6 +24,7 @@ sealed interface CommunityPostDetailsSerializable {
         val text: CommunityPostTextSerializable,
         val owner: UserDetailsSerializable,
         val edited: Boolean,
+        val entities: List<CommunityPostEntitySerializable>,
     ) : CommunityPostDetailsSerializable {
         override fun typed(): CommunityPostDetails.Plain =
             CommunityPostDetails.Plain(
@@ -35,6 +37,7 @@ sealed interface CommunityPostDetailsSerializable {
                 text = text.typed(),
                 owner = owner.typed(),
                 edited = edited,
+                entities = entities.map { entity -> entity.typed() },
             )
     }
 

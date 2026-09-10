@@ -1,5 +1,6 @@
 package friendly.backend
 
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.toSet
@@ -66,6 +67,12 @@ object UsersTable : Table("users") {
             .associateBy(Entry::id)
         return ids.map { id -> results[id] }
     }
+
+    suspend fun selectByAccessHash(accessHash: UserAccessHash): Entry? =
+        selectAll()
+            .where(accessHashColumn eq accessHash.string)
+            .map { row -> row.toEntry() }
+            .firstOrNull()
 
     suspend fun update(
         id: UserId,

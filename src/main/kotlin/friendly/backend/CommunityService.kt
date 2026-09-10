@@ -1,5 +1,14 @@
 package friendly.backend
 
+import friendly.backend.communitypostentity.CommunityPostEntitiesRelationTable
+import friendly.backend.communitypostentity.CommunityPostEntitiesTable
+import friendly.backend.communitypostentity.CommunityPostEntityDetails
+import friendly.backend.communitypostentity.CommunityPostEntityMention
+import friendly.backend.communitypostentity.CommunityPostEntityMentionDetails
+import friendly.backend.communitypostentity.CommunityPostEntityMentionRequest
+import friendly.backend.communitypostentity.CommunityPostEntityMentionsTable
+import friendly.backend.communitypostentity.CommunityPostEntityRequest
+import friendly.backend.communitypostentity.selectTyped
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 object CommunityService {
@@ -66,6 +75,7 @@ object CommunityService {
         authorization: Authorization,
         text: CommunityPostText,
         replyTo: CommunityPostDescriptor?,
+        entities: List<CommunityPostEntityRequest>,
     ): PostResult {
         AuthService
             .authorize(context, authorization)
@@ -103,6 +113,12 @@ object CommunityService {
             if (path != null && replyTo != null) {
                 CommunityPostsPathTable.insert(id, path + replyTo.id)
             }
+            createEntities(
+                context = context,
+                fromId = authorization.id,
+                postId = id,
+                entities = entities,
+            )
             id
         } ?: return PostResult.NotFound
         ActivityService.onPostCreated(
@@ -119,6 +135,38 @@ object CommunityService {
         )
         val descriptor = CommunityPostDescriptor(id, accessHash)
         return PostResult.Success(descriptor)
+    }
+
+    private suspend fun createEntities(
+        context: AppContext,
+        fromId: UserId,
+        postId: CommunityPostId,
+        entities: List<CommunityPostEntityRequest>,
+    ) {
+        for (entity in entities) {
+            when (entity) {
+                is CommunityPostEntityMentionRequest -> {
+                    val target = UsersTable.selectByAccessHash(entity.target)
+                        ?: continue
+                    val allowed = FriendsService.isReachable(
+                        context = context,
+                        first = fromId,
+                        second = target.id,
+                    )
+                    if (!allowed) continue
+                    val entityId = CommunityPostEntitiesTable.insert(
+                        CommunityPostEntitiesTable.Type.Mention,
+                    )
+                    CommunityPostEntityMentionsTable.insert(
+                        id = entityId,
+                        target = target.id.long,
+                        position = entity.position,
+                        length = entity.length,
+                    )
+                    CommunityPostEntitiesRelationTable.insert(postId, entityId)
+                }
+            }
+        }
     }
 
     sealed interface RepliesResult {
@@ -449,6 +497,11 @@ object CommunityService {
             )
         }.iterator()
         val replyUserIdsIterator = replyUserIds.iterator()
+        val entitiesByPost = entitiesForPosts(
+            context = context,
+            fromId = fromId,
+            postIds = entries.map { entry -> entry.id },
+        )
         return entries.map { entry ->
             val replyUserIds = replyUserIdsIterator.next()
             entry.toPost(
@@ -456,13 +509,55 @@ object CommunityService {
                     replyUsers.next()
                 },
                 ownerIfPlain = { users.next() },
+                entities = entitiesByPost[entry.id].orEmpty(),
             )
         }
     }
 
+    private suspend fun entitiesForPosts(
+        context: AppContext,
+        fromId: UserId,
+        postIds: List<CommunityPostId>,
+    ): Map<CommunityPostId, List<CommunityPostEntityDetails>> =
+        suspendTransaction(context.database) {
+            val entityIdsByPost =
+                CommunityPostEntitiesRelationTable.selectEntityIds(postIds)
+            val entities = CommunityPostEntitiesTable
+                .selectTyped(entityIdsByPost.values.flatten())
+                .associateBy { entity -> entity.id }
+            val targetIds = entities.values
+                .filterIsInstance<CommunityPostEntityMention>()
+                .map { mention -> UserId(mention.target) }
+                .distinct()
+            val allowedTargetIds = targetIds.filter { targetId ->
+                FriendsService.isReachable(context, fromId, targetId)
+            }
+            val targetUsers = UsersTable.select(allowedTargetIds)
+                .filterNotNull()
+                .associateBy { user -> user.id }
+            entityIdsByPost.mapValues { (_, entityIds) ->
+                entityIds.mapNotNull { entityId ->
+                    when (val entity = entities[entityId]) {
+                        is CommunityPostEntityMention -> {
+                            val targetUser =
+                                targetUsers[UserId(entity.target)]
+                                    ?: return@mapNotNull null
+                            CommunityPostEntityMentionDetails(
+                                target = targetUser.accessHash,
+                                position = entity.position,
+                                length = entity.length,
+                            )
+                        }
+                        null -> null
+                    }
+                }
+            }
+        }
+
     inline fun CommunityPostsTable.Entry.toPost(
         replyPreviews: List<UserDetails>,
         ownerIfPlain: () -> UserDetails,
+        entities: List<CommunityPostEntityDetails>,
     ): CommunityPostDetails = when (this) {
         is Plain -> CommunityPostDetails.Plain(
             id = id,
@@ -472,6 +567,7 @@ object CommunityService {
             text = text,
             owner = ownerIfPlain(),
             edited = edited,
+            entities = entities,
         )
         is Deleted -> CommunityPostDetails.Deleted(
             id = id,

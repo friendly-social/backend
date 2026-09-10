@@ -1,0 +1,3 @@
+package friendly.backend.communitypostentity
+
+sealed interface CommunityPostEntityRequest
