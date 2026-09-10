@@ -176,7 +176,9 @@ object CommunityService {
             fromId = fromId,
             ids = threadIds,
             withDeleted = true,
-        ).map { details -> details ?: error("Cannot find all posts") }
+        ).map { details ->
+            details ?: error("Cannot find all posts ($threadIds)")
+        }
         return Cursor(
             data = listOf(
                 CommunityPostReply.Thread(
