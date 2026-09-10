@@ -11,7 +11,8 @@ import org.jetbrains.exposed.v1.r2dbc.selectAll
 object CommunityPostsPathTable : Table("community_posts_path") {
     private val postIdColumn = long("post_id")
     private val replyToColumn = long("reply_to")
-    private val depthColumn = long("depth")
+    private val postDepthColumn = long("reply_to_depth")
+    private val replyToDepthColumn = long("post_depth")
 
     override val primaryKey = PrimaryKey(postIdColumn, replyToColumn)
 
@@ -19,33 +20,36 @@ object CommunityPostsPathTable : Table("community_posts_path") {
         batchInsert(path.withIndex()) { (i, replyId) ->
             this[postIdColumn] = postId.long
             this[replyToColumn] = replyId.long
-            this[depthColumn] = i + 1L
+            this[postDepthColumn] = path.size.toLong()
+            this[replyToDepthColumn] = i + 1L
         }
     }
 
     suspend fun selectUpstream(postId: CommunityPostId): List<CommunityPostId> =
         selectAll()
             .where { postIdColumn eq postId.long }
-            .orderBy(depthColumn)
+            .orderBy(replyToDepthColumn)
             .toList()
             .map { row -> CommunityPostId(row[replyToColumn]) }
 
     suspend fun selectReplies(postId: CommunityPostId): List<Entry> =
         selectAll()
             .where { replyToColumn eq postId.long }
-            .orderBy(depthColumn)
+            .orderBy(replyToDepthColumn)
             .toList()
             .map { row -> row.toEntry() }
 
     private fun ResultRow.toEntry(): Entry = Entry(
         postId = CommunityPostId(this[postIdColumn]),
         replyTo = CommunityPostId(this[replyToColumn]),
-        depth = this[depthColumn],
+        postDepth = this[postDepthColumn],
+        replyToDepth = this[replyToDepthColumn],
     )
 
     data class Entry(
         val postId: CommunityPostId,
         val replyTo: CommunityPostId,
-        val depth: Long,
+        val postDepth: Long,
+        val replyToDepth: Long,
     )
 }

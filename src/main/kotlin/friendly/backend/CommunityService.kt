@@ -157,7 +157,7 @@ object CommunityService {
         val replies = suspendTransaction(context.database) {
             CommunityPostsPathTable
                 .selectReplies(post.id)
-                .groupBy { entry -> entry.depth }
+                .groupBy { entry -> entry.replyToDepth }
         }
         val threadIds = replies.keys
             .sorted()
