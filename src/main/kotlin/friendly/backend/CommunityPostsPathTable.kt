@@ -21,7 +21,7 @@ object CommunityPostsPathTable : Table("community_posts_path") {
             this[postIdColumn] = postId.long
             this[replyToColumn] = replyId.long
             this[postDepthColumn] = path.size.toLong()
-            this[replyToDepthColumn] = i + 1L
+            this[replyToDepthColumn] = i.toLong()
         }
     }
 
@@ -35,7 +35,7 @@ object CommunityPostsPathTable : Table("community_posts_path") {
     suspend fun selectReplies(postId: CommunityPostId): List<Entry> =
         selectAll()
             .where { replyToColumn eq postId.long }
-            .orderBy(replyToDepthColumn)
+            .orderBy(postDepthColumn)
             .toList()
             .map { row -> row.toEntry() }
 
