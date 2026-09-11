@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.r2dbc.batchInsert
 import org.jetbrains.exposed.v1.r2dbc.deleteWhere
@@ -40,12 +41,14 @@ object CommunityPostsPathTable : Table("community_posts_path") {
             .toList()
             .map { row -> CommunityPostId(row[replyToColumn]) }
 
-    suspend fun selectReplies(postId: CommunityPostId): List<Entry> =
-        selectAll()
-            .where { replyToColumn eq postId.long }
+    suspend fun selectReplies(postIds: List<CommunityPostId>): List<Entry> {
+        val rawIds = postIds.map { id -> id.long }
+        return selectAll()
+            .where { replyToColumn inList rawIds }
             .orderBy(postDepthColumn)
             .toList()
             .map { row -> row.toEntry() }
+    }
 
     private fun ResultRow.toEntry(): Entry = Entry(
         postId = CommunityPostId(this[postIdColumn]),

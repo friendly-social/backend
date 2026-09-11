@@ -129,6 +129,8 @@ object CommunityService {
             RepliesResult
     }
 
+    const val POSTS_PER_THREAD = 5
+
     suspend fun replies(
         context: AppContext,
         fromId: UserId,
@@ -144,8 +146,8 @@ object CommunityService {
             )
         }
         val posts = detailsFromEntries(context, fromId, entries)
-        if (posts.size != 1) {
-            val nextId = posts.lastOrNull()?.id?.toCursorId()
+        val nextId = posts.lastOrNull()?.id?.toCursorId()
+        if (posts.isEmpty() || posts.size > POSTS_PER_THREAD) {
             return Cursor(
                 data = posts.map { post ->
                     CommunityPostReply.Single(post)
@@ -153,39 +155,46 @@ object CommunityService {
                 nextId = nextId.takeIf { hasNext },
             )
         }
-        val post = posts.first()
         val replies = suspendTransaction(context.database) {
             CommunityPostsPathTable
-                .selectReplies(post.id)
-                .groupBy { entry -> entry.postDepth }
+                .selectReplies(posts.map { post -> post.id })
+                .groupBy { entry -> entry.replyTo }
+                .mapValues { (_, replies) ->
+                    replies.groupBy { reply -> reply.postDepth }
+                }
         }
-        println(">> replies $replies")
-        val threadIds = replies.keys
-            .sorted()
-            .takeWhile { depth -> replies.getValue(depth).size == 1 }
-            .map { depth -> replies.getValue(depth).single().postId }
-        if (threadIds.isEmpty()) {
-            return Cursor(
-                data = listOf(
-                    CommunityPostReply.Single(post),
-                ),
-                nextId = null,
-            )
-        }
-        val thread = detailsFromIds(
-            context = context,
-            fromId = fromId,
-            ids = threadIds,
-            withDeleted = true,
-        ).map { details ->
-            details ?: error("Cannot find all posts ($threadIds)")
+        val threadIds: Map<CommunityPostId, List<CommunityPostId>> =
+            replies.mapValues { (_, replies) ->
+                replies.keys
+                    .sorted()
+                    .takeWhile { depth -> replies.getValue(depth).size == 1 }
+                    .take(POSTS_PER_THREAD + 1)
+                    .map { depth ->
+                        replies.getValue(depth).single().postId
+                    }
+            }
+        val threadPosts: Map<CommunityPostId, CommunityPostDetails> =
+            detailsFromIds(
+                context = context,
+                fromId = fromId,
+                ids = threadIds.flatMap { (_, threadIds) -> threadIds },
+                withDeleted = false,
+            ).map { details ->
+                details ?: error("Cannot find all posts ($threadIds)")
+            }.associateBy { details ->
+                details.id
+            }
+        val data = posts.map { post ->
+            val threadIds = threadIds[post.id].orEmpty()
+            val thread = threadIds.map { id -> threadPosts.getValue(id) }
+            if (thread.isEmpty() || thread.size > POSTS_PER_THREAD) {
+                CommunityPostReply.Single(post)
+            } else {
+                CommunityPostReply.Thread(listOf(post) + thread)
+            }
         }
         return Cursor(
-            data = listOf(
-                CommunityPostReply.Thread(
-                    thread = listOf(post) + thread,
-                ),
-            ),
+            data = data,
             nextId = null,
         )
     }
