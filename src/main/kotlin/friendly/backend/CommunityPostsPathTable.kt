@@ -5,7 +5,9 @@ import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.r2dbc.batchInsert
+import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 
 object CommunityPostsPathTable : Table("community_posts_path") {
@@ -22,6 +24,12 @@ object CommunityPostsPathTable : Table("community_posts_path") {
             this[replyToColumn] = replyId.long
             this[postDepthColumn] = path.size.toLong()
             this[replyToDepthColumn] = i.toLong()
+        }
+    }
+
+    suspend fun deletePostsById(postId: CommunityPostId) {
+        deleteWhere {
+            (postIdColumn eq postId.long) or (replyToColumn eq postId.long)
         }
     }
 

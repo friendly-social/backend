@@ -347,6 +347,7 @@ object CommunityService {
             )
             if (replies.isEmpty()) {
                 CommunityPostsTable.delete(id)
+                CommunityPostsPathTable.deletePostsById(id)
             } else {
                 CommunityPostsTable.updateToDeleted(id)
             }
