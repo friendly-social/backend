@@ -146,6 +146,11 @@ object CommunityService {
             )
         }
         val posts = detailsFromEntries(context, fromId, entries)
+        val limit = if (posts.size == 1) {
+            Int.MAX_VALUE
+        } else {
+            POSTS_PER_THREAD + 1
+        }
         val nextId = posts.lastOrNull()?.id?.toCursorId()
         if (posts.isEmpty() || posts.size > POSTS_PER_THREAD) {
             return Cursor(
@@ -168,7 +173,7 @@ object CommunityService {
                 replies.keys
                     .sorted()
                     .takeWhile { depth -> replies.getValue(depth).size == 1 }
-                    .take(POSTS_PER_THREAD + 1)
+                    .take(limit)
                     .map { depth ->
                         replies.getValue(depth).single().postId
                     }
@@ -187,7 +192,7 @@ object CommunityService {
         val data = posts.map { post ->
             val threadIds = threadIds[post.id].orEmpty()
             val thread = threadIds.map { id -> threadPosts.getValue(id) }
-            if (thread.isEmpty() || thread.size > POSTS_PER_THREAD) {
+            if (thread.isEmpty() || thread.size > limit) {
                 CommunityPostReply.Single(post)
             } else {
                 CommunityPostReply.Thread(listOf(post) + thread)
