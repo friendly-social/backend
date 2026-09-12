@@ -189,7 +189,7 @@ object CommunityService {
                 context = context,
                 fromId = fromId,
                 ids = threadIds.flatMap { (_, threadIds) -> threadIds },
-                withDeleted = false,
+                withDeleted = true,
             ).map { details ->
                 details ?: error("Cannot find all posts ($threadIds)")
             }.associateBy { details ->
