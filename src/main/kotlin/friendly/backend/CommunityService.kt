@@ -141,7 +141,7 @@ object CommunityService {
             CommunityPostsTable.selectReplies(
                 replyTo = replyTo,
                 after = after,
-                limit = 1000,
+                limit = 100,
                 withDeleted = true,
             )
         }
@@ -270,7 +270,7 @@ object CommunityService {
             CommunityPostsTable.selectFrom(
                 ids = ids,
                 before = before,
-                limit = 1000,
+                limit = 100,
                 withDeleted = false,
             )
         }
@@ -322,7 +322,7 @@ object CommunityService {
             CommunityPostsTable.selectFrom(
                 ids = listOf(user.id),
                 before = before,
-                limit = 1000,
+                limit = 100,
                 withDeleted = false,
             )
         }

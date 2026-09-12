@@ -24,7 +24,7 @@ object ActivityService {
             val (entries, hasNext) = ActivityTable.select(
                 toId = authorization.id,
                 before = before,
-                limit = 1000,
+                limit = 100,
             )
             val nextId = if (hasNext) {
                 CursorId("${entries.last().id.long}")
