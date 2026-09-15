@@ -1,5 +1,6 @@
 package friendly.backend
 
+import friendly.backend.communitypostentity.CommunityPostEntityRequestSerializable
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
@@ -83,7 +84,10 @@ object CommunityRouting {
     data class PostBody(
         val text: CommunityPostTextSerializable,
         val replyTo: CommunityPostDescriptorSerializable? = null,
+        val entities: List<CommunityPostEntityRequestSerializable> = emptyList(),
     )
+
+    const val MAX_ENTITIES = 10
 
     fun post(context: AppContext) {
         context.routing.post("/community") {
@@ -94,6 +98,9 @@ object CommunityRouting {
                 authorization = authorization,
                 text = body.text.typed(),
                 replyTo = body.replyTo?.typed(),
+                entities = body.entities
+                    .take(MAX_ENTITIES)
+                    .map { entity -> entity.typed() },
             )
             when (result) {
                 is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)

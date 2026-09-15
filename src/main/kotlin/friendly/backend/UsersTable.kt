@@ -1,10 +1,12 @@
 package friendly.backend
 
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.toSet
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.r2dbc.insert
@@ -66,6 +68,15 @@ object UsersTable : Table("users") {
             .associateBy(Entry::id)
         return ids.map { id -> results[id] }
     }
+
+    suspend fun selectByDescriptor(descriptor: UserDescriptor): Entry? =
+        selectAll()
+            .where(
+                (idColumn eq descriptor.id.long) and
+                    (accessHashColumn eq descriptor.accessHash.string),
+            )
+            .map { row -> row.toEntry() }
+            .firstOrNull()
 
     suspend fun update(
         id: UserId,
