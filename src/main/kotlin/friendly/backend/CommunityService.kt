@@ -197,9 +197,9 @@ object CommunityService {
         }
         val posts = detailsFromEntries(context, fromId, entries)
         val limit = if (posts.size == 1) {
-            Int.MAX_VALUE
+            null
         } else {
-            POSTS_PER_THREAD + 1
+            POSTS_PER_THREAD
         }
         val nextId = posts.lastOrNull()?.id?.toCursorId()
         if (posts.isEmpty() || posts.size > POSTS_PER_THREAD) {
@@ -223,7 +223,13 @@ object CommunityService {
                 replies.keys
                     .sorted()
                     .takeWhile { depth -> replies.getValue(depth).size == 1 }
-                    .take(limit)
+                    .let { thread ->
+                        if (limit != null) {
+                            thread.take(limit + 1)
+                        } else {
+                            thread
+                        }
+                    }
                     .map { depth ->
                         replies.getValue(depth).single().postId
                     }
@@ -233,7 +239,7 @@ object CommunityService {
                 context = context,
                 fromId = fromId,
                 ids = threadIds.flatMap { (_, threadIds) -> threadIds },
-                withDeleted = false,
+                withDeleted = true,
             ).map { details ->
                 details ?: error("Cannot find all posts ($threadIds)")
             }.associateBy { details ->
@@ -242,7 +248,10 @@ object CommunityService {
         val data = posts.map { post ->
             val threadIds = threadIds[post.id].orEmpty()
             val thread = threadIds.map { id -> threadPosts.getValue(id) }
-            if (thread.isEmpty() || thread.size > limit) {
+            if (
+                thread.isEmpty() ||
+                (limit != null && thread.size > limit)
+            ) {
                 CommunityPostReply.Single(post)
             } else {
                 CommunityPostReply.Thread(listOf(post) + thread)
@@ -311,7 +320,7 @@ object CommunityService {
             CommunityPostsTable.selectFrom(
                 ids = ids,
                 before = before,
-                limit = 1000,
+                limit = 100,
                 withDeleted = false,
             )
         }
@@ -363,7 +372,7 @@ object CommunityService {
             CommunityPostsTable.selectFrom(
                 ids = listOf(user.id),
                 before = before,
-                limit = 1000,
+                limit = 100,
                 withDeleted = false,
             )
         }
