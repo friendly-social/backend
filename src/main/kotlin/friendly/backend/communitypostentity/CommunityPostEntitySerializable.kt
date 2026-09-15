@@ -1,6 +1,6 @@
 package friendly.backend.communitypostentity
 
-import friendly.backend.UserAccessHashSerializable
+import friendly.backend.UserId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -11,13 +11,13 @@ sealed interface CommunityPostEntitySerializable {
     @SerialName("mention")
     @Serializable
     data class Mention(
-        val target: UserAccessHashSerializable,
+        val target: String,
         val position: Int,
         val length: Int,
     ) : CommunityPostEntitySerializable {
         override fun typed(): CommunityPostEntityMentionDetails =
             CommunityPostEntityMentionDetails(
-                target = target.typed(),
+                target = UserId(target.toLong()),
                 position = position,
                 length = length,
             )

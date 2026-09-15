@@ -146,7 +146,9 @@ object CommunityService {
         for (entity in entities) {
             when (entity) {
                 is CommunityPostEntityMentionRequest -> {
-                    val target = UsersTable.selectByAccessHash(entity.target)
+                    val descriptor = UserDescriptor.parseOrNull(entity.target)
+                        ?: continue
+                    val target = UsersTable.selectByDescriptor(descriptor)
                         ?: continue
                     val allowed = FriendsService.isReachable(
                         context = context,
@@ -543,7 +545,7 @@ object CommunityService {
                                 targetUsers[UserId(entity.target)]
                                     ?: return@mapNotNull null
                             CommunityPostEntityMentionDetails(
-                                target = targetUser.accessHash,
+                                target = targetUser.id,
                                 position = entity.position,
                                 length = entity.length,
                             )

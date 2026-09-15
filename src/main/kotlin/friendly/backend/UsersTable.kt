@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.toSet
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.r2dbc.insert
@@ -68,9 +69,12 @@ object UsersTable : Table("users") {
         return ids.map { id -> results[id] }
     }
 
-    suspend fun selectByAccessHash(accessHash: UserAccessHash): Entry? =
+    suspend fun selectByDescriptor(descriptor: UserDescriptor): Entry? =
         selectAll()
-            .where(accessHashColumn eq accessHash.string)
+            .where(
+                (idColumn eq descriptor.id.long) and
+                    (accessHashColumn eq descriptor.accessHash.string),
+            )
             .map { row -> row.toEntry() }
             .firstOrNull()
 

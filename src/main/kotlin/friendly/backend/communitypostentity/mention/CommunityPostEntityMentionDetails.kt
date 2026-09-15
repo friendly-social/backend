@@ -1,15 +1,15 @@
 package friendly.backend.communitypostentity
 
-import friendly.backend.UserAccessHash
+import friendly.backend.UserId
 
 data class CommunityPostEntityMentionDetails(
-    val target: UserAccessHash,
+    val target: UserId,
     val position: Int,
     val length: Int,
 ) : CommunityPostEntityDetails {
     override fun serializable(): CommunityPostEntitySerializable.Mention =
         CommunityPostEntitySerializable.Mention(
-            target = target.serializable(),
+            target = target.long.toString(),
             position = position,
             length = length,
         )
