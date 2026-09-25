@@ -39,6 +39,8 @@ dependencies {
     implementation(libs.ktor.client.logging)
     implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.aws.core)
+    implementation(libs.aws.s3)
     implementation(libs.slf4j.simple)
     implementation(libs.exposed.core)
     implementation(libs.exposed.r2dbc)

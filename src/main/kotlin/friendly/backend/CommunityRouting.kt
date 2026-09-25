@@ -34,6 +34,7 @@ object CommunityRouting {
         }
     }
 
+    @Suppress("ktlint:standard:max-line-length")
     fun CommunityService.DetailsResult.Success.serializable2(): Details2Response =
         Details2Response(
             post = post.serializable(),

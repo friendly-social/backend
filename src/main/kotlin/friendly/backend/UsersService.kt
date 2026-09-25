@@ -11,19 +11,40 @@ object UsersService {
         nickname: Nickname,
         description: UserDescription,
         interests: InterestList,
-        avatar: FileDescriptor?,
+        avatar: FilePreuploadDescriptor?,
         socialLink: SocialLink?,
     ): CreateResult = suspendTransaction(context.database) {
         val accessHash = UserAccessHash.random(context.random)
-        val id = UsersTable.insert(
+        val ownerId = UsersTable.insert(
             accessHash = accessHash,
             nickname = nickname,
             description = description,
-            avatar = avatar,
             socialLink = socialLink,
         )
-        InterestsTable.insert(id, interests)
-        CreateResult(id, accessHash)
+        InterestsTable.insert(ownerId, interests)
+        val avatarCompleted = if (avatar != null) {
+            val result = FilesService.preuploadComplete(
+                context = context,
+                ownerId = ownerId,
+                descriptor = avatar,
+            )
+            when (result) {
+                is NotFound -> {
+                    val now = context.clock.now()
+                    val alert = AlertPayload.SignUpAvatarNotFound(now)
+                    AlertsService.post(context, alert)
+                    null
+                }
+                is Ok -> result.descriptor
+            }
+        } else {
+            null
+        }
+        UsersTable.updateAvatar(
+            id = ownerId,
+            avatar = avatarCompleted,
+        )
+        CreateResult(ownerId, accessHash)
     }
 
     sealed interface DetailsDescriptor {

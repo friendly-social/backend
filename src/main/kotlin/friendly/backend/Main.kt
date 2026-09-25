@@ -43,21 +43,23 @@ suspend fun main(): Unit = coroutineScope {
     val port = System.getenv("FRIENDLY_PORT")?.toInt() ?: 8080
     val database = bootstrapDatabase()
     val files = bootstrapFiles()
+    val s3 = bootstrapS3()
     val firebase = bootstrapFirebase()
 
     bootstrapSmtp2go { smtp2go ->
         bootstrapNotifications { notifications ->
-            val context = AppContext(
-                database = database,
-                random = Random,
-                clock = Clock.System,
-                files = files,
-                notifications = notifications,
-                firebase = firebase,
-                scope = scope,
-                json = Json,
-                smtp2go = smtp2go,
-            )
+            val context = AppContext()
+            context.provide(database)
+            context.provide(Random)
+            context.provide(Clock.System)
+            context.provide(files)
+            context.provide(s3)
+            context.provide(notifications)
+            context.provide(firebase)
+            context.provide(scope)
+            context.provide(Json)
+            context.provide(smtp2go)
+
             NotificationsService.restoreScheduled(context)
             FilesCleanupService.attach(context)
             val server = embeddedServer(port, context)
@@ -79,7 +81,7 @@ private fun embeddedServer(
     installCallId()
 
     routing {
-        val context = context.copy(routing = this)
+        context.provide(routing = this)
         AuthRouting.generate(context)
         AuthRouting.firebase(context)
         AuthRouting.email(context)
@@ -88,6 +90,7 @@ private fun embeddedServer(
         UsersRouting.details(context)
         UsersRouting.details2(context)
         UsersRouting.edit(context)
+        FilesRouting.preupload(context)
         FilesRouting.upload(context)
         FilesRouting.download(context)
         FriendsRouting.generate(context)
@@ -155,6 +158,7 @@ private fun Application.installCors() {
         allowHeader("X-Locale")
         allowHeader("X-Token")
         allowHeader("X-User-Id")
+        allowHeader("X-File-Size")
         allowNonSimpleContentTypes = true
     }
 }

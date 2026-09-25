@@ -42,7 +42,6 @@ object UsersTable : Table("users") {
         accessHash: UserAccessHash,
         nickname: Nickname,
         description: UserDescription,
-        avatar: FileDescriptor?,
         socialLink: SocialLink?,
     ): UserId {
         val result = insert { statement ->
@@ -50,10 +49,6 @@ object UsersTable : Table("users") {
             statement[descriptionColumn] = description.string
             statement[accessHashColumn] = accessHash.string
             statement[socialLinkColumn] = socialLink?.string
-            if (avatar != null) {
-                statement[avatarIdColumn] = avatar.id.long
-                statement[avatarAccessHashColumn] = avatar.accessHash.string
-            }
         }
         return UserId(result[idColumn])
     }
@@ -65,6 +60,13 @@ object UsersTable : Table("users") {
             .toList()
             .associateBy(Entry::id)
         return ids.map { id -> results[id] }
+    }
+
+    suspend fun updateAvatar(id: UserId, avatar: FileDescriptor?) {
+        update(where = { idColumn eq id.long }) { statement ->
+            statement[avatarIdColumn] = avatar?.id?.long
+            statement[avatarAccessHashColumn] = avatar?.accessHash?.string
+        }
     }
 
     suspend fun update(

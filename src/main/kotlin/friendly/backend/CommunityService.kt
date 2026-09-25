@@ -141,7 +141,7 @@ object CommunityService {
             CommunityPostsTable.selectReplies(
                 replyTo = replyTo,
                 after = after,
-                limit = 100,
+                limit = 1000,
                 withDeleted = true,
             )
         }
@@ -152,7 +152,7 @@ object CommunityService {
             POSTS_PER_THREAD
         }
         val nextId = posts.lastOrNull()?.id?.toCursorId()
-        if (posts.isEmpty() || posts.size > POSTS_PER_THREAD) {
+        if (posts.isEmpty()) {
             return Cursor(
                 data = posts.map { post ->
                     CommunityPostReply.Single(post)
@@ -270,7 +270,7 @@ object CommunityService {
             CommunityPostsTable.selectFrom(
                 ids = ids,
                 before = before,
-                limit = 100,
+                limit = 1000,
                 withDeleted = false,
             )
         }
@@ -322,7 +322,7 @@ object CommunityService {
             CommunityPostsTable.selectFrom(
                 ids = listOf(user.id),
                 before = before,
-                limit = 100,
+                limit = 1000,
                 withDeleted = false,
             )
         }

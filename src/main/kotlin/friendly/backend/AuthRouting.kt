@@ -13,7 +13,7 @@ object AuthRouting {
         val nickname: NicknameSerializable,
         val description: UserDescriptionSerializable,
         val interests: InterestListSerializable,
-        val avatar: FileDescriptorSerializable?,
+        val avatar: FilePreuploadDescriptorSerializable?,
         val socialLink: SocialLinkSerializable?,
     )
 
@@ -35,11 +35,11 @@ object AuthRouting {
                 avatar = body.avatar?.typed(),
                 socialLink = body.socialLink?.typed(),
             )
-            call.respond(result.toResponse())
+            call.respond(result.serializable())
         }
     }
 
-    private fun TokensService.GenerateResult.toResponse(): GenerateResponse =
+    private fun TokensService.GenerateResult.serializable(): GenerateResponse =
         GenerateResponse(
             token = token.serializable(),
             id = id.serializable(),

@@ -1,41 +1,38 @@
 package friendly.backend
 
-import io.ktor.http.ContentDisposition
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
 import io.ktor.http.content.PartData
 import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondPath
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.util.getValue
-import io.ktor.utils.io.asSource
-import kotlinx.io.buffered
-import kotlinx.serialization.Serializable
-import java.nio.file.Paths
+import io.ktor.utils.io.ByteReadChannel
 
 object FilesRouting {
-    @Serializable
-    private data class UploadResponse(
-        val id: FileIdSerializable,
-        val accessHash: FileAccessHashSerializable,
-    )
+    fun preupload(context: AppContext) {
+        context.routing.post("/files/preupload") {
+            val multipart = call.receiveMultipart()
 
-    fun upload(context: AppContext) {
-        context.routing.post("/files/upload") {
-            val cloudflareBasedIP = call.request.headers["CF-Connecting-IP"]
+            val sizeMetadata = call
+                .request.headers["X-File-Size"]
+                ?.toLongOrNull()
+                ?.takeIf { long -> long >= 0 }
+                ?.let(FileSize::orThrow)
 
-            if (cloudflareBasedIP == null) {
+            if (sizeMetadata == null) {
+                @Suppress("ktlint:standard:max-line-length")
                 call.respond(
                     status = HttpStatusCode.BadRequest,
-                    message = "No access to lava lamps",
+                    message = "File size is required in advance to check for available space",
                 )
                 return@post
             }
 
-            val multipart = call.receiveMultipart()
             val file = multipart.readPart()
 
             if (file == null) {
@@ -55,31 +52,26 @@ object FilesRouting {
             }
 
             try {
-                val channel = file.provider().asSource()
+                val channel = file.provider()
 
-                val sizeMetadata = file.contentDisposition
-                    ?.parameter(ContentDisposition.Parameters.Size)
-                    ?.toLong()
-                    ?.let(FileSize::orThrow)
-
-                val result = channel.use {
-                    FilesService.upload(
-                        context = context,
-                        ip = IpAddress.orThrow(cloudflareBasedIP),
-                        sizeMetadata = sizeMetadata,
-                        source = channel.buffered(),
-                    )
-                }
+                val result = FilesService.preupload(
+                    context = context,
+                    sizeMetadata = sizeMetadata,
+                    source = channel,
+                )
 
                 when (result) {
-                    is FilesService.UploadResult.Success -> {
-                        call.respond(result.serializable())
+                    is Fail -> {
+                        call.respond(HttpStatusCode.ServiceUnavailable)
                     }
-                    is FilesService.UploadResult.InsufficentStorage -> {
+                    is InsufficientStorage -> {
                         call.respond(
                             status = HttpStatusCode.BadRequest,
                             message = "Insufficient Storage",
                         )
+                    }
+                    is Ok -> {
+                        call.respond(result.descriptor.serializable())
                     }
                 }
             } finally {
@@ -88,34 +80,110 @@ object FilesRouting {
         }
     }
 
-    private fun FilesService.UploadResult.Success.serializable() =
-        UploadResponse(id.serializable(), accessHash.serializable())
+    fun upload(context: AppContext) {
+        context.routing.post("/files/upload") {
+            val authorization = call.authorization()
+            val multipart = call.receiveMultipart()
+
+            val sizeMetadata = call
+                .request.headers["X-File-Size"]
+                ?.toLongOrNull()
+                ?.takeIf { long -> long >= 0 }
+                ?.let(FileSize::orThrow)
+
+            if (sizeMetadata == null) {
+                @Suppress("ktlint:standard:max-line-length")
+                call.respond(
+                    status = HttpStatusCode.BadRequest,
+                    message = "File size is required in advance to check for available space",
+                )
+                return@post
+            }
+
+            val file = multipart.readPart()
+
+            if (file == null) {
+                call.respond(
+                    status = HttpStatusCode.BadRequest,
+                    message = "Expecting a single file part",
+                )
+                return@post
+            }
+
+            if (file !is PartData.FileItem) {
+                call.respond(
+                    status = HttpStatusCode.BadRequest,
+                    message = "Expecting a single file part",
+                )
+                return@post
+            }
+
+            try {
+                val channel = file.provider()
+
+                val result = FilesService.upload(
+                    context = context,
+                    authorization = authorization,
+                    sizeMetadata = sizeMetadata,
+                    source = channel,
+                )
+
+                when (result) {
+                    is Fail -> {
+                        call.respond(HttpStatusCode.ServiceUnavailable)
+                    }
+                    is Unauthorized -> {
+                        call.respond(HttpStatusCode.Unauthorized)
+                    }
+                    is InsufficientStorage -> {
+                        call.respond(
+                            status = HttpStatusCode.BadRequest,
+                            message = "Insufficient Storage",
+                        )
+                    }
+                    is Ok -> {
+                        call.respond(result.descriptor.serializable())
+                    }
+                }
+            } finally {
+                file.dispose()
+            }
+        }
+    }
 
     fun download(context: AppContext) {
-        context.routing.get("/files/download/{idLong}/{accessHashString}") {
-            val idLong: Long by call.pathParameters
-            val accessHashString: String by call.pathParameters
+        context.routing.get("/files/download/{id}/{accessHash}") {
+            val id = call.fileId("id")
+            val accessHash = call.fileAccessHash("accessHash")
 
-            val id = FileIdSerializable(idLong)
-            val accessHash = FileAccessHashSerializable(accessHashString)
-
-            val result = FilesService.getPath(
+            val result = FilesService.download(
                 context = context,
-                id = id.typed(),
-                accessHash = accessHash.typed(),
+                id = id,
+                accessHash = accessHash,
             )
 
             when (result) {
-                is FilesService.GetPathResult.NotFound -> {
+                is FilesService.DownloadResult.Unauthorized -> {
+                    call.respond(HttpStatusCode.Unauthorized)
+                }
+                is FilesService.DownloadResult.NotFound -> {
                     call.respond(HttpStatusCode.NotFound)
                 }
-                is FilesService.GetPathResult.Success -> {
-                    val javaPath = Paths.get(result.path.toString())
+                is FilesService.DownloadResult.Ok -> {
                     call.response.header(
                         HttpHeaders.CacheControl,
                         "public, max-age=31536000, immutable",
                     )
-                    call.respondPath(javaPath)
+                    call.respond(
+                        object : OutgoingContent.ReadChannelContent() {
+                            override val contentType =
+                                ContentType.Application.OctetStream
+                            override val contentLength =
+                                result.size.bytes
+                            override fun readFrom(): ByteReadChannel =
+                                result.channel
+                        },
+                    )
                 }
             }
         }

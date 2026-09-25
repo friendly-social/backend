@@ -10,12 +10,14 @@ data class FileSize private constructor(val bytes: Long) :
         return orThrow(bytes = this.bytes - other.bytes)
     }
 
+    operator fun plus(other: FileSize): FileSize =
+        orThrow(bytes = this.bytes + other.bytes)
+
     override operator fun compareTo(other: FileSize): Int =
         this.bytes.compareTo(other.bytes)
 
     companion object {
         val Zero: FileSize = 0L.bytes
-        val MaxPerIp: FileSize = 20L.MB
 
         fun orThrow(bytes: Long): FileSize {
             require(bytes >= 0) { "FileSize cannot be negative, was $bytes" }
@@ -24,6 +26,7 @@ data class FileSize private constructor(val bytes: Long) :
     }
 }
 
+val Long.GB: FileSize get() = (this * 1_024).MB
 val Long.MB: FileSize get() = (this * 1_024).KB
 val Long.KB: FileSize get() = (this * 1_024).bytes
 val Long.bytes: FileSize get() = FileSize.orThrow(bytes = this)

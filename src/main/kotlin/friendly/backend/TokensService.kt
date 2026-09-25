@@ -15,7 +15,7 @@ object TokensService {
         nickname: Nickname,
         description: UserDescription,
         interests: InterestList,
-        avatar: FileDescriptor?,
+        avatar: FilePreuploadDescriptor?,
         socialLink: SocialLink?,
     ): GenerateResult {
         val token = Token.random(context.random)

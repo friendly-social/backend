@@ -3,11 +3,12 @@ package friendly.backend
 import io.ktor.server.routing.RoutingCall
 import kotlinx.serialization.SerializationException
 
-data class FileId(val long: Long) {
-    fun serializable(): FileIdSerializable = FileIdSerializable(long)
+data class FilePreuploadId(val long: Long) {
+    fun serializable(): FilePreuploadIdSerializable =
+        FilePreuploadIdSerializable(long)
 }
 
-fun RoutingCall.fileId(name: String): FileId {
+fun RoutingCall.filePreuploadId(name: String): FilePreuploadId {
     val string = parameters[name]
         ?: throw SerializationException(
             "$name is not optional",
@@ -16,5 +17,5 @@ fun RoutingCall.fileId(name: String): FileId {
         ?: throw SerializationException(
             "$name must be an integer",
         )
-    return FileIdSerializable(long).typed()
+    return FilePreuploadIdSerializable(long).typed()
 }
