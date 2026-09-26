@@ -29,7 +29,7 @@ object FilesTable : Table("files") {
     val instantColumn = timestamp("instant")
     val accessHashColumn = varchar("access_hash", FileAccessHash.Length)
 
-    val pendingColumn = bool("pending").default(true)
+    val pendingColumn = bool("pending")
     val markForDeletionColumn = bool("mark_for_deletion").default(false)
 
     override val primaryKey = PrimaryKey(idColumn)
@@ -39,12 +39,14 @@ object FilesTable : Table("files") {
         size: FileSize,
         instant: Instant,
         accessHash: FileAccessHash,
+        pending: Boolean,
     ): FileId {
         val long = insert { statement ->
             statement[ownerIdColumn] = ownerId.long
             statement[sizeColumn] = size.bytes
             statement[instantColumn] = instant
             statement[accessHashColumn] = accessHash.string
+            statement[pendingColumn] = pending
         }[idColumn]
         return FileId(long)
     }

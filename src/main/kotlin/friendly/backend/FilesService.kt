@@ -159,6 +159,7 @@ object FilesService {
             size = entry.size,
             instant = entry.instant,
             accessHash = resultAccessHash,
+            pending = false,
         )
         S3Service.movePreupload(
             context = context,
@@ -262,7 +263,13 @@ object FilesService {
         maxAttempts = Int.MAX_VALUE
         val insufficient = checkRequestedSize(ownerId, instant, size)
         if (insufficient == null) {
-            val id = FilesTable.insert(ownerId, size, instant, accessHash)
+            val id = FilesTable.insert(
+                ownerId = ownerId,
+                size = size,
+                instant = instant,
+                accessHash = accessHash,
+                pending = true,
+            )
             ReserveFileResult.Ok(id)
         } else {
             insufficient
