@@ -15,7 +15,7 @@ fun bootstrapDatabase(): R2dbcDatabase {
     val factory = ConnectionFactories.get(url)
     val config = ConnectionPoolConfiguration.builder(factory)
         .initialSize(1)
-        .maxSize(1)
+        .maxSize(10)
         .maxLifeTime(Duration.ofMinutes(10))
         .build()
     val pool = ConnectionPool(config)
