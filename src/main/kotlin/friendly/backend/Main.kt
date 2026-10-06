@@ -31,7 +31,8 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.lang.Thread
-import kotlin.random.Random
+import java.security.SecureRandom
+import kotlin.random.asKotlinRandom
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.measureTime
@@ -50,7 +51,7 @@ suspend fun main(): Unit = coroutineScope {
         bootstrapNotifications { notifications ->
             val context = AppContext()
             context.provide(database)
-            context.provide(Random)
+            context.provide(SecureRandom().asKotlinRandom())
             context.provide(Clock.System)
             context.provide(files)
             context.provide(s3)
