@@ -11,7 +11,7 @@ data class ConfirmationCode private constructor(val int: Int) {
         val Max: Int = 99_999_999
 
         fun random(random: Random): ConfirmationCode {
-            val int = (Min..Max).random()
+            val int = (Min..Max).random(random)
             return ConfirmationCode(int)
         }
 

@@ -10,7 +10,7 @@ data class LoginCode private constructor(val int: Int) {
         val Max: Int = 99_999_999
 
         fun random(random: Random): LoginCode {
-            val int = (Min..Max).random()
+            val int = (Min..Max).random(random)
             return LoginCode(int)
         }
 
