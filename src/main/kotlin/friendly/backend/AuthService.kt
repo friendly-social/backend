@@ -93,7 +93,11 @@ object AuthService {
             LoginCodesTable.delete(email)
             val token = TokensService.add(context, ownerId)
             val ids = listOf(ownerId)
-            val details = UsersService.details(context, ownerId, ids).first()
+            val details = UsersService.detailsLegacy(
+                context,
+                ownerId,
+                ids,
+            ).first()
             checkNotNull(details) {
                 "User must exist if userId was found in emails"
             }

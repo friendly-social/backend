@@ -435,43 +435,35 @@ object CommunityService {
         fromId: UserId,
         entries: List<CommunityPostsTable.Entry>,
     ): List<CommunityPostDetails> {
-        val users = UsersService.detailsOrThrow(
-            context = context,
-            fromId = fromId,
-            ids = entries.mapNotNull { entry ->
-                when (entry) {
-                    is Plain -> entry.ownerId
-                    is Deleted -> null
-                }
-            },
-        ).iterator()
+        val ownerIds = entries.mapNotNull { entry ->
+            when (entry) {
+                is Plain -> entry.ownerId
+                is Deleted -> null
+            }
+        }
         val replyUserIds = suspendTransaction(context.database) {
             CommunityPostsTable.selectReplierIds(
                 ids = entries.map { entry -> entry.id },
             )
         }
-        val replyUsers = suspendTransaction(context.database) {
-            UsersService.detailsOrThrow(
-                context = context,
-                fromId = fromId,
-                ids = replyUserIds.flatten(),
-            )
-        }.iterator()
+        val users = UsersService.details(
+            context = context,
+            fromId = fromId,
+            ids = (ownerIds + replyUserIds.flatten()).distinct(),
+        )
         val replyUserIdsIterator = replyUserIds.iterator()
         return entries.map { entry ->
             val replyUserIds = replyUserIdsIterator.next()
             entry.toPost(
-                replyPreviews = replyUserIds.map {
-                    replyUsers.next()
-                },
-                ownerIfPlain = { users.next() },
+                replyPreviews = replyUserIds.map { id -> users.getValue(id) },
+                ownerIfPlain = { ownerId -> users.getValue(ownerId) },
             )
         }
     }
 
     inline fun CommunityPostsTable.Entry.toPost(
         replyPreviews: List<UserDetails>,
-        ownerIfPlain: () -> UserDetails,
+        ownerIfPlain: (ownerId: UserId) -> UserDetails,
     ): CommunityPostDetails = when (this) {
         is Plain -> CommunityPostDetails.Plain(
             id = id,
@@ -479,7 +471,7 @@ object CommunityService {
             instant = instant,
             replyPreviews = replyPreviews,
             text = text,
-            owner = ownerIfPlain(),
+            owner = ownerIfPlain(ownerId),
             edited = edited,
         )
         is Deleted -> CommunityPostDetails.Deleted(

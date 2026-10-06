@@ -24,7 +24,7 @@ object FriendsTable : Table("friends") {
     override val primaryKey = PrimaryKey(fromIdColumn, toIdColumn)
 
     init {
-        uniqueIndex(toIdColumn, fromIdColumn)
+        uniqueIndex("friends_to_from_idx", toIdColumn, fromIdColumn)
     }
 
     suspend fun upsert(

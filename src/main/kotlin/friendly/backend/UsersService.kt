@@ -75,7 +75,7 @@ object UsersService {
             is Other -> descriptor.id
         }
         return suspendTransaction(context.database) {
-            val user = details(
+            val user = detailsLegacy(
                 context = context,
                 fromId = authorization.id,
                 ids = listOf(descriptorId),
@@ -93,22 +93,14 @@ object UsersService {
                     firstUserId = authorization.id,
                     secondUserId = descriptorId,
                 )
-                UsersService.detailsOrThrow(
+                UsersService.detailsLegacy(
                     context = context,
                     fromId = authorization.id,
                     ids = ids,
-                )
+                ).map { user -> user ?: error("User $user not found") }
             }
             DetailsResult.Success(user, commonFriends)
         }
-    }
-
-    suspend fun detailsOrThrow(
-        context: AppContext,
-        fromId: UserId,
-        ids: List<UserId>,
-    ): List<UserDetails> = details(context, fromId, ids).mapIndexed { i, user ->
-        user ?: error("User with id ${ids[i]} has not been found")
     }
 
     suspend fun details(
@@ -119,17 +111,17 @@ object UsersService {
         context = context,
         fromId = fromId,
         ids = listOf(descriptor.id),
-    ).first()?.takeIf { user ->
+    ).values.first()?.takeIf { user ->
         user.accessHash == descriptor.accessHash
     }
 
-    suspend fun details(
+    suspend fun detailsLegacy(
         context: AppContext,
         fromId: UserId,
         ids: List<UserId>,
     ): List<UserDetails?> {
         return suspendTransaction(context.database) {
-            val entries = UsersTable.select(ids)
+            val entries = UsersTable.selectLegacy(ids)
             val interests = InterestsTable.select(ids).iterator()
             val email = selectEmailIfOwner(fromId, ids)
             val friendship = friendship(fromId, ids).iterator()
@@ -149,6 +141,36 @@ object UsersService {
                     friendship = friendship,
                 )
             }
+        }
+    }
+
+    suspend fun details(
+        context: AppContext,
+        fromId: UserId,
+        ids: List<UserId>,
+    ): Map<UserId, UserDetails> {
+        return suspendTransaction(context.database) {
+            val entries = UsersTable.select(ids)
+            val interests = InterestsTable.select(ids).iterator()
+            val email = selectEmailIfOwner(fromId, ids)
+            val friendship = friendship(fromId, ids).iterator()
+            ids.mapNotNull { id ->
+                val entry = entries.getValue(id)
+                val interests = interests.next()
+                val friendship = friendship.next()
+                entry ?: return@mapNotNull null
+                UserDetails(
+                    id = entry.id,
+                    accessHash = entry.accessHash,
+                    nickname = entry.nickname,
+                    email = hideEmailIfNotOwner(fromId, entry.id, email),
+                    description = entry.description,
+                    avatar = entry.avatar,
+                    interests = interests.list,
+                    socialLink = entry.socialLink,
+                    friendship = friendship,
+                )
+            }.associateBy { user -> user.id }
         }
     }
 

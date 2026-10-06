@@ -238,7 +238,7 @@ object FriendsService {
     ): UserDetails? {
         val user = UsersService
             .details(context, authorization.id, listOf(id))
-            .first()
+            .values.single()
             ?: return null
         if (accessHash != user.accessHash) {
             return null
@@ -258,7 +258,7 @@ object FriendsService {
 
     suspend fun list(context: AppContext, fromId: UserId): List<UserDetails> {
         val friendIds = listIds(context, fromId)
-        val friendDetails = UsersService.details(
+        val friendDetails = UsersService.detailsLegacy(
             context = context,
             fromId = fromId,
             ids = friendIds,

@@ -48,7 +48,6 @@ object FeedService {
                 listOf(fromId, toId)
             } + extendedNetworkRaw.map { (_, _, toId) -> toId },
         )
-            .associateBy { user -> user!!.id }
         val neighboringNetwork = neighboringNetworkRaw
             .map { (_, fromId, toId) -> users[fromId]!! to users[toId]!! }
             .groupBy(

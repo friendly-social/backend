@@ -53,13 +53,15 @@ object UsersTable : Table("users") {
         return UserId(result[idColumn])
     }
 
-    suspend fun select(ids: List<UserId>): List<Entry?> {
-        val results = selectAll()
-            .where(idColumn inList ids.map(UserId::long))
-            .map { row -> row.toEntry() }
-            .toList()
-            .associateBy(Entry::id)
-        return ids.map { id -> results[id] }
+    suspend fun select(ids: List<UserId>): Map<UserId, Entry> = selectAll()
+        .where(idColumn inList ids.map(UserId::long))
+        .map { row -> row.toEntry() }
+        .toList()
+        .associateBy(Entry::id)
+
+    suspend fun selectLegacy(ids: List<UserId>): List<Entry?> {
+        val map = select(ids)
+        return ids.map { id -> map[id] }
     }
 
     suspend fun updateAvatar(id: UserId, avatar: FileDescriptor?) {
