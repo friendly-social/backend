@@ -90,6 +90,9 @@ object NotificationsService {
             if (notification == null) {
                 return@suspendTransaction DetailsResult.NotFound
             }
+            if (notification.toId != authorization.id) {
+                return@suspendTransaction DetailsResult.NotFound
+            }
             val details = when (notification) {
                 is NewRequest -> {
                     val ids = listOf(notification.fromId)
