@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.datetime.duration
 import org.jetbrains.exposed.v1.datetime.timestamp
@@ -56,6 +57,17 @@ object FriendsTable : Table("friends") {
             .associateBy(Entry::descriptor)
         return descriptors.map { descriptor -> results[descriptor] }
     }
+
+    suspend fun select(
+        fromIds: List<UserId>,
+        toIds: List<UserId>,
+    ): List<Entry> = selectAll()
+        .where(
+            (fromIdColumn inList fromIds.map(UserId::long)) and
+                (toIdColumn inList toIds.map(UserId::long)),
+        )
+        .map { row -> row.toEntry() }
+        .toList()
 
     /**
      * Selects such users who [fromId] added as their friend.
