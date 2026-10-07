@@ -32,11 +32,10 @@ object NetworkService {
         var frontier = listOf(fromId)
         for (degree in 1..maxDegrees.int) {
             if (frontier.isEmpty()) break
-            // todo: filter out decision not request after test
-            //       then map entry to id
             val outgoing = FriendsTable
                 .selectOutgoing(frontier)
                 .filter { entry -> entry.toId !in visitedIds }
+                .filter { entry -> entry.decision == Request }
             val incoming = FriendsTable.select(
                 fromIds = outgoing.map { entry -> entry.toId },
                 toIds = frontier,
@@ -44,9 +43,7 @@ object NetworkService {
                 entry.descriptor
             }
             val mutual = outgoing.filter { outgoing ->
-                val incomingDecision =
-                    incoming[outgoing.descriptor.swap()]?.decision
-                outgoing.decision == Request && incomingDecision == Request
+                incoming[outgoing.descriptor.swap()]?.decision == Request
             }
             for ((_, fromId, toId) in mutual) {
                 require(toId !in visitedIds) {
