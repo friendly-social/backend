@@ -41,12 +41,13 @@ object FeedService {
         val extendedNetworkRaw =
             network.getOrElse(NetworkDegree.Three) { emptyList() } +
                 network.getOrElse(NetworkDegree.Four) { emptyList() }
+        val neighboringIds = neighboringNetworkRaw
+            .flatMap { (_, fromId, toId) -> listOf(fromId, toId) }
+        val extendedIds = extendedNetworkRaw.map { (_, _, toId) -> toId }
         val users = UsersService.details(
             context = context,
             fromId = authorization.id,
-            ids = neighboringNetworkRaw.flatMap { (_, fromId, toId) ->
-                listOf(fromId, toId)
-            } + extendedNetworkRaw.map { (_, _, toId) -> toId },
+            ids = (neighboringIds + extendedIds).distinct(),
         )
         val neighboringNetwork = neighboringNetworkRaw
             .map { (_, fromId, toId) -> users[fromId]!! to users[toId]!! }
