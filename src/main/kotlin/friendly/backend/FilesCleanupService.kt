@@ -48,21 +48,31 @@ object FilesCleanupService {
         }
     }
 
-    suspend fun markForDeletion(context: AppContext): Unit = suspendTransaction(
-        db = context.database,
-        transactionIsolation = SERIALIZABLE,
-    ) {
-        val instant = context.clock.now() - context.files.cleanupDelay
-        FilesTable
-            .selectBefore(instant, pending = false, markForDeletion = false)
-            .chunked(1_000)
-            .collect { files ->
-                logger.info("Check for deletion: $files")
-                val filtered = files.toSet().unusedAsAvatars().toList()
-                logger.info("Mark for deletion: $filtered")
-                FilesTable.markForDeletion(filtered)
-            }
+    suspend fun markForDeletion(context: AppContext) {
+        // no-op
     }
+
+    /**
+     * This implementation is frozen for future times when we will have
+     * entities and markdown, so it is possible to query what images are used in
+     * posts and what are not
+     */
+    suspend fun markForDeletionFrozen(context: AppContext): Unit =
+        suspendTransaction(
+            db = context.database,
+            transactionIsolation = SERIALIZABLE,
+        ) {
+            val instant = context.clock.now() - context.files.cleanupDelay
+            FilesTable
+                .selectBefore(instant, pending = false, markForDeletion = false)
+                .chunked(1_000)
+                .collect { files ->
+                    logger.info("Check for deletion: $files")
+                    val filtered = files.toSet().unusedAsAvatars().toList()
+                    logger.info("Mark for deletion: $filtered")
+                    FilesTable.markForDeletion(filtered)
+                }
+        }
 
     suspend fun Set<FileId>.unusedAsAvatars(): Set<FileId> =
         this - UsersTable.usedAsAvatars(this)
