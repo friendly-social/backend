@@ -63,7 +63,9 @@ object TokensTable : Table("tokens") {
         .toList()
 
     suspend fun deleteFirebase(token: FirebaseToken) =
-        deleteWhere { firebaseTokenColumn eq token.string }
+        update({ firebaseTokenColumn eq token.string }) { statement ->
+            statement[firebaseTokenColumn] = null
+        }
 
     data class Entry(
         val ownerId: UserId,
