@@ -6,7 +6,10 @@ object ActivityService {
     sealed interface ListResult {
         data object Unauthorized : ListResult
         data object CursorInvalid : ListResult
-        data class Success(val cursor: Cursor<ActivityDetails>) : ListResult
+        data class Success(
+            val hasUnread: Boolean,
+            val cursor: Cursor<ActivityDetails>,
+        ) : ListResult
     }
 
     suspend fun list(
@@ -26,6 +29,7 @@ object ActivityService {
                 before = before,
                 limit = 1000,
             )
+            val hasUnread = entries.any { entry -> entry.isUnread }
             val nextId = if (hasNext) {
                 CursorId("${entries.last().id.long}")
             } else {
@@ -37,7 +41,7 @@ object ActivityService {
                 entries = entries,
             )
             val cursor = Cursor(details, nextId)
-            ListResult.Success(cursor)
+            ListResult.Success(hasUnread, cursor)
         }
     }
 

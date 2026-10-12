@@ -7,7 +7,7 @@ data class Authorization(val id: UserId, val token: Token)
 
 val provideAuthorizationMessage = """
 Provide Authorization using 'X-User-Id' for userId and 'X-Token' for token
-""".trimIndent()
+"""
 
 fun RoutingCall.authorization(): Authorization {
     val userId = request.headers["X-User-Id"]

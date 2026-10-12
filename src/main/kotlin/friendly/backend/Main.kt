@@ -113,7 +113,7 @@ private fun embeddedServer(
         CommunityRouting.from(context)
         CommunityRouting.details(context)
         CommunityRouting.details2(context)
-        ActivityRouting.list(context)
+        ActivityRouting.listCompatible(context)
         ActivityRouting.read(context)
         NotificationsRouting.details(context)
     }
@@ -160,6 +160,7 @@ private fun Application.installCors() {
         allowHeader("X-Token")
         allowHeader("X-User-Id")
         allowHeader("X-File-Size")
+        allowHeader("X-Compatible")
         allowNonSimpleContentTypes = true
     }
 }

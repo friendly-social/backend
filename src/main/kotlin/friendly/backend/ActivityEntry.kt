@@ -16,3 +16,5 @@ sealed interface ActivityEntry {
         val postId: CommunityPostId,
     ) : ActivityEntry
 }
+
+val ActivityEntry.isUnread: Boolean get() = !isRead
