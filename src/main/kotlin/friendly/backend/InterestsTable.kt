@@ -10,6 +10,7 @@ import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 
 object InterestsTable : Table("interests") {
+    private val idColumn = long("id").autoIncrement()
     private val userIdColumn = long("user_id")
     private val nameColumn = varchar("name", Interest.MaxLength)
 
@@ -25,6 +26,7 @@ object InterestsTable : Table("interests") {
     suspend fun select(userIds: List<UserId>): List<UserInterests> {
         val entries = selectAll()
             .where(userIdColumn inList userIds.map(UserId::long))
+            .orderBy(idColumn)
             .map { row ->
                 Entry(
                     userId = UserId(row[userIdColumn]),

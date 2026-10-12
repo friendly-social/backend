@@ -6,10 +6,7 @@ object ActivityService {
     sealed interface ListResult {
         data object Unauthorized : ListResult
         data object CursorInvalid : ListResult
-        data class Success(
-            val hasUnread: Boolean,
-            val cursor: Cursor<ActivityDetails>,
-        ) : ListResult
+        data class Success(val cursor: Cursor<ActivityDetails>) : ListResult
     }
 
     suspend fun list(
@@ -29,7 +26,6 @@ object ActivityService {
                 before = before,
                 limit = 100,
             )
-            val hasUnread = entries.any { entry -> entry.isUnread }
             val nextId = if (hasNext) {
                 CursorId("${entries.last().id.long}")
             } else {
@@ -41,7 +37,48 @@ object ActivityService {
                 entries = entries,
             )
             val cursor = Cursor(details, nextId)
-            ListResult.Success(hasUnread, cursor)
+            ListResult.Success(cursor)
+        }
+    }
+
+    sealed interface NewUnreadsResult {
+        data object Unauthorized : NewUnreadsResult
+        data object None : NewUnreadsResult
+        data class Some(val activityId: ActivityId) : NewUnreadsResult
+    }
+
+    suspend fun newUnreads(
+        context: AppContext,
+        authorization: Authorization,
+    ): NewUnreadsResult {
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return Unauthorized }
+        return suspendTransaction(context.database) {
+            val activityId = ActivityNewUnreadsTable.select(authorization.id)
+            if (activityId == null) {
+                NewUnreadsResult.None
+            } else {
+                NewUnreadsResult.Some(activityId)
+            }
+        }
+    }
+
+    sealed interface AcknowledgeUnreadsResult {
+        data object Unauthorized : AcknowledgeUnreadsResult
+        data object Ok : AcknowledgeUnreadsResult
+    }
+
+    suspend fun acknowledgeUnreads(
+        context: AppContext,
+        authorization: Authorization,
+    ): AcknowledgeUnreadsResult {
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return Unauthorized }
+        return suspendTransaction(context.database) {
+            ActivityNewUnreadsTable.delete(authorization.id)
+            AcknowledgeUnreadsResult.Ok
         }
     }
 
@@ -65,6 +102,7 @@ object ActivityService {
                 return@suspendTransaction NotFound
             }
             ActivityTable.markAsRead(id)
+            ActivityNewUnreadsTable.delete(authorization.id, id)
             Success
         }
     }
@@ -102,7 +140,18 @@ object ActivityService {
         suspendTransaction(context.database) {
             val instant = context.clock.now()
             val reply = ActivityPayload.Reply(toId, instant, postId)
-            ActivityTable.insert(reply)
+            val activityId = ActivityTable.insert(reply)
+            onActivityCreated(context, toId, activityId)
+        }
+    }
+
+    suspend fun onActivityCreated(
+        context: AppContext,
+        toId: UserId,
+        activityId: ActivityId,
+    ) {
+        suspendTransaction(context.database) {
+            ActivityNewUnreadsTable.upsert(toId, activityId)
         }
     }
 

@@ -1,5 +1,6 @@
 package friendly.backend
 
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -11,6 +12,7 @@ import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.insert
+import org.jetbrains.exposed.v1.r2dbc.select
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.update
 
@@ -26,7 +28,7 @@ object ActivityTable : Table("activity") {
 
     override val primaryKey = PrimaryKey(idColumn)
 
-    suspend fun insert(payload: ActivityPayload) {
+    suspend fun insert(payload: ActivityPayload): ActivityId =
         insert { statement ->
             statement[toIdColumn] = payload.toId.long
             statement[instantColumn] = payload.instant
@@ -36,14 +38,14 @@ object ActivityTable : Table("activity") {
                     statement[replyPostIdColumn] = payload.postId.long
                 }
             }
-        }
-    }
+        }.resultedValues!![0][idColumn].let(::ActivityId)
 
     data class SelectResult(
         val entries: List<ActivityEntry>,
         val hasNext: Boolean,
     )
 
+    // fixme: not pure table logic, should be moved to service
     suspend fun select(
         toId: UserId,
         before: ActivityId?,
@@ -70,6 +72,13 @@ object ActivityTable : Table("activity") {
             )
         }
     }
+
+    suspend fun selectLastUnreadId(toId: UserId): ActivityId? = select(idColumn)
+        .where { (toIdColumn eq toId.long) and (isReadColumn eq false) }
+        .orderBy(idColumn, DESC)
+        .firstOrNull()
+        ?.get(idColumn)
+        ?.let(::ActivityId)
 
     suspend fun deleteReplies(postId: CommunityPostId) {
         deleteWhere {

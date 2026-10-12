@@ -2,64 +2,73 @@ package friendly.backend
 
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respond
-import io.ktor.server.routing.RoutingCall
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 object ActivityRouting {
-    fun listCompatible(context: AppContext) {
+    fun list(context: AppContext) {
         context.routing.get("/activity/list/{cursorId?}") {
-            val compatible = call.compatible()
-            when {
-                compatible.int >= 2 -> list(context, call)
-                else -> list1(context, call)
+            val authorization = call.authorization()
+            val cursorId = call.cursorIdOrNull("cursorId")
+            val result = ActivityService.list(
+                context = context,
+                authorization = authorization,
+                cursorId = cursorId,
+            )
+            when (result) {
+                is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                is CursorInvalid -> call.respond(HttpStatusCode.BadRequest)
+                is Success -> {
+                    val response = result.cursor
+                        .serializable { details -> details.serializable() }
+                    call.respond(response)
+                }
             }
         }
     }
 
     @Serializable
-    data class ListResponse(
-        val hasUnread: Boolean,
-        val cursor: CursorSerializable<ActivityDetailsSerializable>,
-    )
+    sealed interface NewUnreadsResponse {
+        @Serializable
+        @SerialName("none")
+        data object None : NewUnreadsResponse
 
-    suspend fun list(context: AppContext, call: RoutingCall) {
-        val authorization = call.authorization()
-        val cursorId = call.cursorIdOrNull("cursorId")
-        val result = ActivityService.list(
-            context = context,
-            authorization = authorization,
-            cursorId = cursorId,
-        )
-        when (result) {
-            is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
-            is CursorInvalid -> call.respond(HttpStatusCode.BadRequest)
-            is Success -> call.respond(result.serializable())
+        @Serializable
+        @SerialName("some")
+        data class Some(val activityId: ActivityIdSerializable) :
+            NewUnreadsResponse
+    }
+
+    fun newUnreads(context: AppContext) {
+        context.routing.post("/activity/unreads/new") {
+            val authorization = call.authorization()
+            val result = ActivityService.newUnreads(context, authorization)
+            when (result) {
+                is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                is None -> call.respond<NewUnreadsResponse>(
+                    NewUnreadsResponse.None,
+                )
+                is Some -> {
+                    val activityId = result.activityId.serializable()
+                    val response = NewUnreadsResponse.Some(activityId)
+                    call.respond<NewUnreadsResponse>(response)
+                }
+            }
         }
     }
 
-    private fun ActivityService.ListResult.Success.serializable() =
-        ListResponse(
-            hasUnread = hasUnread,
-            cursor = cursor.serializable { details -> details.serializable() },
-        )
-
-    suspend fun list1(context: AppContext, call: RoutingCall) {
-        val authorization = call.authorization()
-        val cursorId = call.cursorIdOrNull("cursorId")
-        val result = ActivityService.list(
-            context = context,
-            authorization = authorization,
-            cursorId = cursorId,
-        )
-        when (result) {
-            is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
-            is CursorInvalid -> call.respond(HttpStatusCode.BadRequest)
-            is Success -> {
-                val response = result.cursor
-                    .serializable { details -> details.serializable() }
-                call.respond(response)
+    fun acknowledgeUnreads(context: AppContext) {
+        context.routing.post("/activity/unreads/acknowledge") {
+            val authorization = call.authorization()
+            val result = ActivityService.acknowledgeUnreads(
+                context = context,
+                authorization = authorization,
+            )
+            when (result) {
+                is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                is Ok -> call.respond(HttpStatusCode.OK)
             }
         }
     }
