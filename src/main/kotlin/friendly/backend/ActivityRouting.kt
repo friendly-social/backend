@@ -42,7 +42,7 @@ object ActivityRouting {
     }
 
     fun newUnreads(context: AppContext) {
-        context.routing.post("/activity/unreads/new") {
+        context.routing.get("/activity/unreads/new") {
             val authorization = call.authorization()
             val result = ActivityService.newUnreads(context, authorization)
             when (result) {
