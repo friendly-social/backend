@@ -27,7 +27,7 @@ object ActivityService {
             val (entries, hasNext) = ActivityTable.select(
                 toId = authorization.id,
                 before = before,
-                limit = 1000,
+                limit = 100,
             )
             val hasUnread = entries.any { entry -> entry.isUnread }
             val nextId = if (hasNext) {
