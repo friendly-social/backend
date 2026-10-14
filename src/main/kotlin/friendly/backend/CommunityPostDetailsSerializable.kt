@@ -70,7 +70,7 @@ sealed interface CommunityPostDetailsSerializable {
         fun typed(): CommunityPostDetails.NewReply =
             CommunityPostDetails.NewReply(
                 id = id.typed(),
-                transitive = true,
+                transitive = transitive,
             )
     }
 }

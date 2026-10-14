@@ -59,7 +59,7 @@ sealed interface CommunityPostDetails {
         fun serializable(): CommunityPostDetailsSerializable.NewReply =
             CommunityPostDetailsSerializable.NewReply(
                 id = id.serializable(),
-                transitive = true,
+                transitive = transitive,
             )
     }
 }
