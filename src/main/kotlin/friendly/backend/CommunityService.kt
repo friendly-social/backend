@@ -103,22 +103,56 @@ object CommunityService {
             if (path != null && replyTo != null) {
                 CommunityPostsPathTable.insert(id, path + replyTo.id)
             }
+            if (replyTo == null) {
+                CommunityViewersTable.upsert(
+                    userId = authorization.id,
+                    postId = id,
+                )
+            } else {
+                postNewReplies(
+                    context = context,
+                    fromId = authorization.id,
+                    postId = id,
+                    replyToId = replyTo.id,
+                )
+            }
+            ActivityService.onPostCreated(
+                context = context,
+                fromId = authorization.id,
+                replyTo = replyToEntry,
+                id = id,
+            )
+            NotificationsService.onPostCreated(
+                context = context,
+                fromId = authorization.id,
+                replyTo = replyToEntry,
+                id = id,
+            )
             id
         } ?: return PostResult.NotFound
-        ActivityService.onPostCreated(
-            context = context,
-            fromId = authorization.id,
-            replyTo = replyToEntry,
-            id = id,
-        )
-        NotificationsService.onPostCreated(
-            context = context,
-            fromId = authorization.id,
-            replyTo = replyToEntry,
-            id = id,
-        )
         val descriptor = CommunityPostDescriptor(id, accessHash)
         return PostResult.Success(descriptor)
+    }
+
+    suspend fun postNewReplies(
+        context: AppContext,
+        fromId: UserId,
+        postId: CommunityPostId,
+        replyToId: CommunityPostId,
+    ) {
+        val root = CommunityPostsPathTable.selectRoot(postId)
+        if (root == null) {
+            error(
+                "Bug! Check was performed that replyTo != null, but no root post",
+            )
+        }
+        val viewers = CommunityViewersTable.selectUsers(root)
+        if (viewers.isEmpty()) return
+        CommunityNewRepliesTable.upsertReplies(
+            postId = replyToId,
+            newReply = postId,
+            userIds = (viewers.toSet() - fromId).toList(),
+        )
     }
 
     sealed interface RepliesResult {
@@ -407,6 +441,44 @@ object CommunityService {
         return Success
     }
 
+    sealed interface VisitResult {
+        data object Unauthorized : VisitResult
+        data object NotFound : VisitResult
+        data object Ok : VisitResult
+    }
+
+    suspend fun view(
+        context: AppContext,
+        authorization: Authorization,
+        id: CommunityPostId,
+        accessHash: CommunityPostAccessHash,
+    ): VisitResult {
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return Unauthorized }
+        return suspendTransaction(context.database) t@{
+            val post = CommunityPostsTable.selectById(
+                ids = listOf(id),
+                withDeleted = true,
+            ).first() ?: return@t NotFound
+            if (post.accessHash != accessHash) {
+                return@t NotFound
+            }
+            val root = CommunityPostsPathTable.selectRoot(post.id)
+            if (root == null) {
+                CommunityViewersTable.upsert(
+                    userId = authorization.id,
+                    postId = post.id,
+                )
+            }
+            CommunityNewRepliesTable.delete(
+                userId = authorization.id,
+                postId = post.id,
+            )
+            Ok
+        }
+    }
+
     suspend fun detailsFromIds(
         context: AppContext,
         fromId: UserId,
@@ -446,6 +518,12 @@ object CommunityService {
                 ids = entries.map { entry -> entry.id },
             )
         }
+        val newReplies = suspendTransaction(context.database) {
+            CommunityNewRepliesTable.selectByUserId(
+                userId = fromId,
+                postIds = entries.map { entry -> entry.id },
+            )
+        }
         val users = UsersService.details(
             context = context,
             fromId = fromId,
@@ -456,22 +534,33 @@ object CommunityService {
             val replyUserIds = replyUserIdsIterator.next()
             entry.toPost(
                 replyPreviews = replyUserIds.map { id -> users.getValue(id) },
-                ownerIfPlain = { ownerId -> users.getValue(ownerId) },
+                ownerIfPlain = { entry -> users.getValue(entry.ownerId) },
+                newReply = newReplies[entry.id]?.let { id ->
+                    CommunityPostDetails.NewReply(
+                        id = id,
+                        // todo: also count transitive ones.
+                        // transitive one should win over non-transitive one for
+                        // client cache reasons
+                        transitive = false,
+                    )
+                },
             )
         }
     }
 
     inline fun CommunityPostsTable.Entry.toPost(
         replyPreviews: List<UserDetails>,
-        ownerIfPlain: (ownerId: UserId) -> UserDetails,
+        newReply: CommunityPostDetails.NewReply?,
+        ownerIfPlain: (entry: CommunityPostsTable.Entry.Plain) -> UserDetails,
     ): CommunityPostDetails = when (this) {
         is Plain -> CommunityPostDetails.Plain(
             id = id,
             accessHash = accessHash,
             instant = instant,
             replyPreviews = replyPreviews,
+            newReply = newReply,
             text = text,
-            owner = ownerIfPlain(ownerId),
+            owner = ownerIfPlain(this),
             edited = edited,
         )
         is Deleted -> CommunityPostDetails.Deleted(
@@ -479,6 +568,7 @@ object CommunityService {
             accessHash = accessHash,
             instant = instant,
             replyPreviews = replyPreviews,
+            newReply = newReply,
         )
     }
 }

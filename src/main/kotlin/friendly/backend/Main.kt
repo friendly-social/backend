@@ -113,6 +113,7 @@ private fun embeddedServer(
         CommunityRouting.from(context)
         CommunityRouting.details(context)
         CommunityRouting.details2(context)
+        CommunityRouting.view(context)
         ActivityRouting.list(context)
         ActivityRouting.read(context)
         ActivityRouting.newUnreads(context)

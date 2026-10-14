@@ -253,4 +253,23 @@ object CommunityRouting {
             }
         }
     }
+
+    fun view(context: AppContext) {
+        context.routing.post("/community/{id}/{accessHash}/view") {
+            val authorization = call.authorization()
+            val id = call.postId("id")
+            val accessHash = call.postAccessHash("accessHash")
+            val result = CommunityService.view(
+                context = context,
+                authorization = authorization,
+                id = id,
+                accessHash = accessHash,
+            )
+            when (result) {
+                Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                NotFound -> call.respond(HttpStatusCode.NotFound)
+                Ok -> call.respond(HttpStatusCode.OK)
+            }
+        }
+    }
 }
