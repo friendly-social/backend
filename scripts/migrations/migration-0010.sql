@@ -1,5 +1,3 @@
-
--- NOT RAN; TODO: UPDATE WHEN RAN
 UPDATE community_posts_path
 SET
     reply_to_depth = post_depth,

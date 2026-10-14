@@ -475,6 +475,14 @@ object CommunityService {
                 userId = authorization.id,
                 postId = post.id,
             )
+            val replyTo = post.replyTo
+            if (replyTo != null) {
+                CommunityNewRepliesTable.delete(
+                    userId = authorization.id,
+                    postId = replyTo,
+                    newReply = post.id,
+                )
+            }
             Ok
         }
     }

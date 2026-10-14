@@ -58,4 +58,16 @@ object CommunityNewRepliesTable : Table("community_new_replies") {
             (userIdColumn eq userId.long) and (postIdColumn eq postId.long)
         }
     }
+
+    suspend fun delete(
+        userId: UserId,
+        postId: CommunityPostId,
+        newReply: CommunityPostId,
+    ) {
+        deleteWhere {
+            (userIdColumn eq userId.long) and
+                (postIdColumn eq postId.long) and
+                (newReplyColumn eq newReply.long)
+        }
+    }
 }
