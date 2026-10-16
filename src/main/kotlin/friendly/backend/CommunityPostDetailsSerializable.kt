@@ -10,7 +10,7 @@ sealed interface CommunityPostDetailsSerializable {
     val accessHash: CommunityPostAccessHashSerializable
     val instant: Instant
     val replyPreviews: List<UserDetailsSerializable>
-    val newReply: NewReply?
+    val newUnreadId: CommunityPostIdSerializable?
 
     fun typed(): CommunityPostDetails
 
@@ -21,7 +21,7 @@ sealed interface CommunityPostDetailsSerializable {
         override val accessHash: CommunityPostAccessHashSerializable,
         override val instant: Instant,
         override val replyPreviews: List<UserDetailsSerializable>,
-        override val newReply: NewReply?,
+        override val newUnreadId: CommunityPostIdSerializable?,
         val text: CommunityPostTextSerializable,
         val owner: UserDetailsSerializable,
         val edited: Boolean,
@@ -34,7 +34,7 @@ sealed interface CommunityPostDetailsSerializable {
                 replyPreviews = replyPreviews.map { preview ->
                     preview.typed()
                 },
-                newReply = newReply?.typed(),
+                newUnreadId = newUnreadId?.typed(),
                 text = text.typed(),
                 owner = owner.typed(),
                 edited = edited,
@@ -48,7 +48,7 @@ sealed interface CommunityPostDetailsSerializable {
         override val accessHash: CommunityPostAccessHashSerializable,
         override val instant: Instant,
         override val replyPreviews: List<UserDetailsSerializable>,
-        override val newReply: NewReply?,
+        override val newUnreadId: CommunityPostIdSerializable?,
     ) : CommunityPostDetailsSerializable {
         override fun typed(): CommunityPostDetails.Deleted =
             CommunityPostDetails.Deleted(
@@ -58,19 +58,7 @@ sealed interface CommunityPostDetailsSerializable {
                 replyPreviews = replyPreviews.map { preview ->
                     preview.typed()
                 },
-                newReply = newReply?.typed(),
-            )
-    }
-
-    @Serializable
-    data class NewReply(
-        val id: CommunityPostIdSerializable,
-        val transitive: Boolean,
-    ) {
-        fun typed(): CommunityPostDetails.NewReply =
-            CommunityPostDetails.NewReply(
-                id = id.typed(),
-                transitive = transitive,
+                newUnreadId = newUnreadId?.typed(),
             )
     }
 }

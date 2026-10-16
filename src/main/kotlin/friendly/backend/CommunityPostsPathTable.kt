@@ -8,6 +8,8 @@ import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.minus
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.r2dbc.batchInsert
 import org.jetbrains.exposed.v1.r2dbc.deleteWhere
@@ -30,10 +32,10 @@ import org.jetbrains.exposed.v1.r2dbc.selectAll
  * | 4       | 0        | 4          | 0              |
  */
 object CommunityPostsPathTable : Table("community_posts_path") {
-    private val postIdColumn = long("post_id")
-    private val replyToColumn = long("reply_to")
-    private val postDepthColumn = long("post_depth")
-    private val replyToDepthColumn = long("reply_to_depth")
+    val postIdColumn = long("post_id")
+    val replyToColumn = long("reply_to")
+    val postDepthColumn = long("post_depth")
+    val replyToDepthColumn = long("reply_to_depth")
 
     override val primaryKey = PrimaryKey(postIdColumn, replyToColumn)
 
@@ -68,11 +70,19 @@ object CommunityPostsPathTable : Table("community_posts_path") {
             .toList()
             .map { row -> CommunityPostId(row[replyToColumn]) }
 
-    suspend fun selectReplies(postIds: List<CommunityPostId>): List<Entry> {
+    suspend fun selectReplies(
+        postIds: List<CommunityPostId>,
+        maxDepth: Long,
+        limit: Int,
+    ): List<Entry> {
         val rawIds = postIds.map { id -> id.long }
         return selectAll()
-            .where { replyToColumn inList rawIds }
+            .where {
+                (replyToColumn inList rawIds) and
+                    ((postDepthColumn minus replyToDepthColumn) lessEq maxDepth)
+            }
             .orderBy(postDepthColumn)
+            .limit(limit)
             .toList()
             .map { row -> row.toEntry() }
     }

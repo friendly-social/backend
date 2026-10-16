@@ -113,7 +113,6 @@ object CommunityService {
                     context = context,
                     fromId = authorization.id,
                     postId = id,
-                    replyToId = replyTo.id,
                 )
             }
             ActivityService.onPostCreated(
@@ -138,7 +137,6 @@ object CommunityService {
         context: AppContext,
         fromId: UserId,
         postId: CommunityPostId,
-        replyToId: CommunityPostId,
     ) {
         val root = CommunityPostsPathTable.selectRoot(postId)
         if (root == null) {
@@ -148,9 +146,8 @@ object CommunityService {
         }
         val viewers = CommunityViewersTable.selectUsers(root)
         if (viewers.isEmpty()) return
-        CommunityNewRepliesTable.upsertReplies(
-            postId = replyToId,
-            newReply = postId,
+        CommunityNewUnreadsTable.upsert(
+            postId = postId,
             userIds = (viewers.toSet() - fromId).toList(),
         )
     }
@@ -164,6 +161,7 @@ object CommunityService {
     }
 
     const val POSTS_PER_THREAD = 5
+    const val PAGING_SIZE = 100
 
     suspend fun replies(
         context: AppContext,
@@ -171,20 +169,15 @@ object CommunityService {
         replyTo: CommunityPostId,
         after: CommunityPostId?,
     ): Cursor<CommunityPostReply> {
-        val (entries, hasNext) = suspendTransaction(context.database) {
+        val (replies, hasNext) = suspendTransaction(context.database) {
             CommunityPostsTable.selectReplies(
                 replyTo = replyTo,
                 after = after,
-                limit = 100,
+                limit = PAGING_SIZE,
                 withDeleted = true,
             )
         }
-        val posts = detailsFromEntries(context, fromId, entries)
-        val limit = if (posts.size == 1) {
-            null
-        } else {
-            POSTS_PER_THREAD
-        }
+        val posts = detailsFromEntries(context, fromId, replies)
         val nextId = posts.lastOrNull()?.id?.toCursorId()
         if (posts.isEmpty()) {
             return Cursor(
@@ -194,30 +187,10 @@ object CommunityService {
                 nextId = nextId.takeIf { hasNext },
             )
         }
-        val replies = suspendTransaction(context.database) {
-            CommunityPostsPathTable
-                .selectReplies(posts.map { post -> post.id })
-                .groupBy { entry -> entry.replyTo }
-                .mapValues { (_, replies) ->
-                    replies.groupBy { reply -> reply.postDepth }
-                }
-        }
-        val threadIds: Map<CommunityPostId, List<CommunityPostId>> =
-            replies.mapValues { (_, replies) ->
-                replies.keys
-                    .sorted()
-                    .takeWhile { depth -> replies.getValue(depth).size == 1 }
-                    .let { thread ->
-                        if (limit != null) {
-                            thread.take(limit + 1)
-                        } else {
-                            thread
-                        }
-                    }
-                    .map { depth ->
-                        replies.getValue(depth).single().postId
-                    }
-            }
+        val threadIds = threadIds(
+            context = context,
+            postIds = posts.map { post -> post.id },
+        )
         val threadPosts: Map<CommunityPostId, CommunityPostDetails> =
             detailsFromIds(
                 context = context,
@@ -234,7 +207,7 @@ object CommunityService {
             val thread = threadIds.map { id -> threadPosts.getValue(id) }
             if (
                 thread.isEmpty() ||
-                (limit != null && thread.size > limit)
+                (posts.size > 1 && thread.size > POSTS_PER_THREAD)
             ) {
                 CommunityPostReply.Single(post)
             } else {
@@ -243,8 +216,61 @@ object CommunityService {
         }
         return Cursor(
             data = data,
-            nextId = null,
+            nextId = nextId.takeIf { hasNext },
         )
+    }
+
+    suspend fun threadIds(
+        context: AppContext,
+        postIds: List<CommunityPostId>,
+    ): Map<CommunityPostId, List<CommunityPostId>> {
+        val limit = if (postIds.size == 1) {
+            null
+        } else {
+            POSTS_PER_THREAD
+        }
+        return suspendTransaction t@{
+            val repliesByPost = CommunityPostsPathTable
+                .selectReplies(
+                    postIds = postIds,
+                    maxDepth = (limit ?: PAGING_SIZE) + 1L,
+                    // todo:
+                    //
+                    // * pagination can break, because this limit is going
+                    //   to cut mid-item.
+                    // * also can break if first reply to reply contain
+                    //   thousands of messages which will prevent other threads
+                    //   from having threads
+                    //
+                    // Honestly, the behavior itself is alright, but it needs to
+                    // be predictable and with worst case scenario being threads
+                    // not being expanded, but nothing lost
+                    limit = PAGING_SIZE * POSTS_PER_THREAD,
+                )
+                .groupBy { entry -> entry.replyTo }
+                .mapValues { (_, replies) ->
+                    replies.groupBy { reply -> reply.postDepth }
+                }
+            repliesByPost.mapValues { (_, repliesByDepth) ->
+                repliesByDepth.keys
+                    .sorted()
+                    .asSequence()
+                    .takeWhile { depth ->
+                        repliesByDepth.getValue(depth).size == 1
+                    }
+                    .let { thread ->
+                        if (limit != null) {
+                            thread.take(limit + 1)
+                        } else {
+                            thread
+                        }
+                    }
+                    .map { depth ->
+                        repliesByDepth.getValue(depth).single().postId
+                    }
+                    .toList()
+            }
+        }
     }
 
     suspend fun replies(
@@ -465,24 +491,42 @@ object CommunityService {
                 return@t NotFound
             }
             val root = CommunityPostsPathTable.selectRoot(post.id)
-            if (root == null) {
-                CommunityViewersTable.upsert(
-                    userId = authorization.id,
-                    postId = post.id,
-                )
-            }
-            CommunityNewRepliesTable.delete(
+            CommunityViewersTable.upsert(
                 userId = authorization.id,
-                postId = post.id,
+                postId = root ?: post.id,
             )
-            val replyTo = post.replyTo
-            if (replyTo != null) {
-                CommunityNewRepliesTable.delete(
-                    userId = authorization.id,
-                    postId = replyTo,
-                    newReply = post.id,
-                )
-            }
+            val upstream = CommunityPostsPathTable.selectUpstream(post.id)
+            CommunityNewUnreadsTable.delete(
+                userId = authorization.id,
+                postIds = upstream + post.id,
+            )
+            // todo: add view method with paging prop
+            val (replies) = CommunityPostsTable.selectReplies(
+                replyTo = post.id,
+                after = null,
+                limit = PAGING_SIZE,
+                withDeleted = true,
+            )
+            val replyIds = replies.map { reply -> reply.id }
+            if (replies.isEmpty()) return@t Ok
+            val threadIds = threadIds(
+                context = context,
+                postIds = replyIds,
+            )
+            val markAsRead = threadIds
+                .flatMap { (_, thread) ->
+                    if (replies.size > 1 && thread.size > POSTS_PER_THREAD) {
+                        emptyList()
+                    } else {
+                        thread
+                    }
+                }
+                .let { markAsRead -> markAsRead + replyIds }
+                .distinct()
+            CommunityNewUnreadsTable.delete(
+                userId = authorization.id,
+                postIds = markAsRead,
+            )
             Ok
         }
     }
@@ -526,8 +570,8 @@ object CommunityService {
                 ids = entries.map { entry -> entry.id },
             )
         }
-        val newReplies = suspendTransaction(context.database) {
-            CommunityNewRepliesTable.selectByUserId(
+        val newUnreads = suspendTransaction(context.database) {
+            CommunityNewUnreadsTable.selectTransitiveNewUnreads(
                 userId = fromId,
                 postIds = entries.map { entry -> entry.id },
             )
@@ -543,22 +587,14 @@ object CommunityService {
             entry.toPost(
                 replyPreviews = replyUserIds.map { id -> users.getValue(id) },
                 ownerIfPlain = { entry -> users.getValue(entry.ownerId) },
-                newReply = newReplies[entry.id]?.let { id ->
-                    CommunityPostDetails.NewReply(
-                        id = id,
-                        // todo: also count transitive ones.
-                        // transitive one should win over non-transitive one for
-                        // client cache reasons
-                        transitive = false,
-                    )
-                },
+                newUnreadId = newUnreads[entry.id],
             )
         }
     }
 
     inline fun CommunityPostsTable.Entry.toPost(
         replyPreviews: List<UserDetails>,
-        newReply: CommunityPostDetails.NewReply?,
+        newUnreadId: CommunityPostId?,
         ownerIfPlain: (entry: CommunityPostsTable.Entry.Plain) -> UserDetails,
     ): CommunityPostDetails = when (this) {
         is Plain -> CommunityPostDetails.Plain(
@@ -566,7 +602,7 @@ object CommunityService {
             accessHash = accessHash,
             instant = instant,
             replyPreviews = replyPreviews,
-            newReply = newReply,
+            newUnreadId = newUnreadId,
             text = text,
             owner = ownerIfPlain(this),
             edited = edited,
@@ -576,7 +612,7 @@ object CommunityService {
             accessHash = accessHash,
             instant = instant,
             replyPreviews = replyPreviews,
-            newReply = newReply,
+            newUnreadId = newUnreadId,
         )
     }
 }
