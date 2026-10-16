@@ -254,12 +254,12 @@ object CommunityRouting {
         }
     }
 
-    fun view(context: AppContext) {
-        context.routing.post("/community/{id}/{accessHash}/view") {
+    fun read(context: AppContext) {
+        context.routing.post("/community/{id}/{accessHash}/read") {
             val authorization = call.authorization()
             val id = call.postId("id")
             val accessHash = call.postAccessHash("accessHash")
-            val result = CommunityService.view(
+            val result = CommunityService.read(
                 context = context,
                 authorization = authorization,
                 id = id,

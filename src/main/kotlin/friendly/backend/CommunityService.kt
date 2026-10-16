@@ -473,7 +473,7 @@ object CommunityService {
         data object Ok : VisitResult
     }
 
-    suspend fun view(
+    suspend fun read(
         context: AppContext,
         authorization: Authorization,
         id: CommunityPostId,
@@ -500,7 +500,7 @@ object CommunityService {
                 userId = authorization.id,
                 postIds = upstream + post.id,
             )
-            // todo: add view method with paging prop
+            // todo: add read method with paging prop
             val (replies) = CommunityPostsTable.selectReplies(
                 replyTo = post.id,
                 after = null,
