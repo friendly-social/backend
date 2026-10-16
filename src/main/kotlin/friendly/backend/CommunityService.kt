@@ -527,6 +527,11 @@ object CommunityService {
                 userId = authorization.id,
                 postIds = markAsRead,
             )
+            ActivityService.onPostRead(
+                context = context,
+                fromId = authorization.id,
+                ids = markAsRead,
+            )
             Ok
         }
     }

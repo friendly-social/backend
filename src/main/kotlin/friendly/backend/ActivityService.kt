@@ -170,6 +170,19 @@ object ActivityService {
         }
     }
 
+    suspend fun onPostRead(
+        context: AppContext,
+        fromId: UserId,
+        ids: List<CommunityPostId>,
+    ) {
+        suspendTransaction(context.database) {
+            ActivityTable.markRepliesAsRead(
+                toId = fromId,
+                postIds = ids,
+            )
+        }
+    }
+
     suspend fun onPostDeleted(context: AppContext, postId: CommunityPostId) {
         suspendTransaction(context.database) {
             ActivityTable.deleteReplies(postId)

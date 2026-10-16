@@ -86,6 +86,20 @@ object ActivityTable : Table("activity") {
         }
     }
 
+    suspend fun markRepliesAsRead(
+        toId: UserId,
+        postIds: List<CommunityPostId>,
+    ) {
+        val rawIds = postIds.map { id -> id.long }
+        update(
+            where = {
+                (toIdColumn eq toId.long) and (replyPostIdColumn inList rawIds)
+            },
+        ) { statement ->
+            statement[isReadColumn] = true
+        }
+    }
+
     suspend fun selectById(ids: List<ActivityId>): List<ActivityEntry?> {
         val rawIds = ids.map { id -> id.long }
         val map = selectAll()
