@@ -176,10 +176,11 @@ object ActivityService {
         ids: List<CommunityPostId>,
     ) {
         suspendTransaction(context.database) {
-            ActivityTable.markRepliesAsRead(
+            val markedIds = ActivityTable.markRepliesAsRead(
                 toId = fromId,
                 postIds = ids,
             )
+            ActivityNewUnreadsTable.delete(activityIds = markedIds)
         }
     }
 

@@ -15,6 +15,7 @@ import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.select
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.update
+import org.jetbrains.exposed.v1.r2dbc.updateReturning
 
 object ActivityTable : Table("activity") {
     private val idColumn = long("id").autoIncrement()
@@ -89,15 +90,20 @@ object ActivityTable : Table("activity") {
     suspend fun markRepliesAsRead(
         toId: UserId,
         postIds: List<CommunityPostId>,
-    ) {
+    ): List<ActivityId> {
         val rawIds = postIds.map { id -> id.long }
-        update(
+        return updateReturning(
+            returning = listOf(idColumn),
             where = {
                 (toIdColumn eq toId.long) and (replyPostIdColumn inList rawIds)
             },
         ) { statement ->
             statement[isReadColumn] = true
         }
+            .map { row ->
+                ActivityId(row[idColumn])
+            }
+            .toList()
     }
 
     suspend fun selectById(ids: List<ActivityId>): List<ActivityEntry?> {

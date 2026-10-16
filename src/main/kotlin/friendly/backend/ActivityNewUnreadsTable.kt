@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.select
 import org.jetbrains.exposed.v1.r2dbc.upsert
@@ -35,6 +36,13 @@ object ActivityNewUnreadsTable : Table("activity_new_unreads") {
         deleteWhere {
             (userIdColumn eq userId.long) and
                 (newUnreadIdColumn eq activityId.long)
+        }
+    }
+
+    suspend fun delete(activityIds: List<ActivityId>) {
+        val rawIds = activityIds.map { id -> id.long }
+        deleteWhere {
+            newUnreadIdColumn inList rawIds
         }
     }
 }
