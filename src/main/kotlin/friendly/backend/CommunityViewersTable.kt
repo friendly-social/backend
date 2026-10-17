@@ -8,8 +8,8 @@ import org.jetbrains.exposed.v1.r2dbc.select
 import org.jetbrains.exposed.v1.r2dbc.upsert
 
 /**
- * Table for user "subscriptions" on posts. Actual blue dots that needs to be
- * shown are stored under [CommunityNewRepliesTable].
+ * Table of root posts that user has viewed. Actual blue dots that needs to be
+ * shown are stored under [CommunityNewUnreadsTable].
  */
 object CommunityViewersTable : Table("community_viewers") {
     val userIdColumn = long("user_id")

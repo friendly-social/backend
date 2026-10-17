@@ -9,9 +9,10 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.datetime.timestamp
+import org.jetbrains.exposed.v1.r2dbc.batchInsert
 import org.jetbrains.exposed.v1.r2dbc.deleteWhere
-import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.select
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.update
@@ -22,15 +23,21 @@ object ActivityTable : Table("activity") {
     private val typeColumn = enumeration<Type>("type")
     private val toIdColumn = long("to_id")
     private val instantColumn = timestamp("instant")
-    private val isReadColumn = bool("is_read")
+    private val isReadColumn = bool("is_read").default(false)
 
     private val replyPostIdColumn =
         long("reply_post_id").nullable()
 
+    private val indirectRepliesPostIdColumn =
+        long("indirect_replies_post_id").nullable()
+    private val indirectRepliesNewUnreadIdColumn =
+        long("indirect_replies_new_unread_id").nullable()
+
     override val primaryKey = PrimaryKey(idColumn)
 
-    suspend fun insert(payload: ActivityPayload): ActivityId =
-        insert { statement ->
+    suspend fun insert(payload: List<ActivityPayload>): List<ActivityId> =
+        batchInsert(payload) { payload ->
+            val statement = this
             statement[toIdColumn] = payload.toId.long
             statement[instantColumn] = payload.instant
             when (payload) {
@@ -38,8 +45,16 @@ object ActivityTable : Table("activity") {
                     statement[typeColumn] = Type.Reply
                     statement[replyPostIdColumn] = payload.postId.long
                 }
+                is IndirectReplies -> {
+                    statement[typeColumn] = Type.IndirectReplies
+                    statement[indirectRepliesPostIdColumn] = payload.postId.long
+                    statement[indirectRepliesNewUnreadIdColumn] =
+                        payload.newUnreadId.long
+                }
             }
-        }.resultedValues!![0][idColumn].let(::ActivityId)
+        }.map { row ->
+            row[idColumn].let(::ActivityId)
+        }
 
     data class SelectResult(
         val entries: List<ActivityEntry>,
@@ -84,6 +99,13 @@ object ActivityTable : Table("activity") {
     suspend fun deleteReplies(postId: CommunityPostId) {
         deleteWhere {
             replyPostIdColumn eq postId.long
+        }
+    }
+
+    suspend fun deleteIndirectReplies(postId: CommunityPostId) {
+        deleteWhere {
+            (indirectRepliesPostIdColumn eq postId.long) or
+                (indirectRepliesNewUnreadIdColumn eq postId.long)
         }
     }
 
@@ -134,10 +156,27 @@ object ActivityTable : Table("activity") {
                     ?: error("Invalid ResultRow")
                 ActivityEntry.Reply(id, toId, instant, isRead, postId)
             }
+            IndirectReplies -> {
+                val postId = this[indirectRepliesPostIdColumn]
+                    ?.let(::CommunityPostId)
+                    ?: error("Invalid ResultRow")
+                val newUnreadId = this[indirectRepliesNewUnreadIdColumn]
+                    ?.let(::CommunityPostId)
+                    ?: error("Invalid ResultRow")
+                ActivityEntry.IndirectReplies(
+                    id = id,
+                    toId = toId,
+                    instant = instant,
+                    isRead = isRead,
+                    postId = postId,
+                    newUnreadId = newUnreadId,
+                )
+            }
         }
     }
 
     enum class Type {
         Reply,
+        IndirectReplies,
     }
 }

@@ -5,9 +5,9 @@ import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.r2dbc.batchUpsert
 import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.select
-import org.jetbrains.exposed.v1.r2dbc.upsert
 
 object ActivityNewUnreadsTable : Table("activity_new_unreads") {
     val userIdColumn = long("user_id")
@@ -21,10 +21,10 @@ object ActivityNewUnreadsTable : Table("activity_new_unreads") {
         ?.get(newUnreadIdColumn)
         ?.let(::ActivityId)
 
-    suspend fun upsert(userId: UserId, activityId: ActivityId) {
-        upsert { statement ->
-            statement[userIdColumn] = userId.long
-            statement[newUnreadIdColumn] = activityId.long
+    suspend fun upsert(map: Map<UserId, ActivityId>) {
+        batchUpsert(map.entries) { (userId, activityId) ->
+            this[userIdColumn] = userId.long
+            this[newUnreadIdColumn] = activityId.long
         }
     }
 

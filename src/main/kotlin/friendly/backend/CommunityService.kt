@@ -103,18 +103,12 @@ object CommunityService {
             if (path != null && replyTo != null) {
                 CommunityPostsPathTable.insert(id, path + replyTo.id)
             }
-            if (replyTo == null) {
-                CommunityViewersTable.upsert(
-                    userId = authorization.id,
-                    postId = id,
-                )
-            } else {
-                postNewReplies(
-                    context = context,
-                    fromId = authorization.id,
-                    postId = id,
-                )
-            }
+            onPostCreated(
+                context = context,
+                fromId = authorization.id,
+                replyTo = replyTo?.id,
+                id = id,
+            )
             ActivityService.onPostCreated(
                 context = context,
                 fromId = authorization.id,
@@ -133,18 +127,40 @@ object CommunityService {
         return PostResult.Success(descriptor)
     }
 
+    suspend fun onPostCreated(
+        context: AppContext,
+        fromId: UserId,
+        replyTo: CommunityPostId?,
+        id: CommunityPostId,
+    ) {
+        suspendTransaction(context.database) {
+            val rootId = CommunityPostsPathTable.selectRoot(id)
+            CommunityViewersTable.upsert(
+                userId = fromId,
+                postId = rootId ?: id,
+            )
+            CommunitySubscribersTable.upsert(
+                userId = fromId,
+                postId = rootId ?: id,
+            )
+            if (rootId != null) {
+                postNewReplies(
+                    context = context,
+                    fromId = fromId,
+                    postId = id,
+                    rootId = rootId,
+                )
+            }
+        }
+    }
+
     suspend fun postNewReplies(
         context: AppContext,
         fromId: UserId,
         postId: CommunityPostId,
+        rootId: CommunityPostId,
     ) {
-        val root = CommunityPostsPathTable.selectRoot(postId)
-        if (root == null) {
-            error(
-                "Bug! Check was performed that replyTo != null, but no root post",
-            )
-        }
-        val viewers = CommunityViewersTable.selectUsers(root)
+        val viewers = CommunityViewersTable.selectUsers(rootId)
         if (viewers.isEmpty()) return
         CommunityNewUnreadsTable.upsert(
             postId = postId,

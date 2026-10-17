@@ -11,4 +11,11 @@ sealed interface ActivityPayload {
         override val instant: Instant,
         val postId: CommunityPostId,
     ) : ActivityPayload
+
+    data class IndirectReplies(
+        override val toId: UserId,
+        override val instant: Instant,
+        val postId: CommunityPostId,
+        val newUnreadId: CommunityPostId,
+    ) : ActivityPayload
 }

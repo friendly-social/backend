@@ -115,6 +115,7 @@ object ActivityService {
         val postIds = entries.map { entry ->
             when (entry) {
                 is Reply -> entry.postId
+                is IndirectReplies -> entry.postId
             }
         }
         val posts = CommunityService
@@ -123,6 +124,12 @@ object ActivityService {
         return entries.map { entry ->
             when (entry) {
                 is Reply -> ActivityDetails.Reply(
+                    id = entry.id,
+                    instant = entry.instant,
+                    isRead = entry.isRead,
+                    post = posts.next() as Plain,
+                )
+                is IndirectReplies -> ActivityDetails.IndirectReplies(
                     id = entry.id,
                     instant = entry.instant,
                     isRead = entry.isRead,
@@ -140,18 +147,41 @@ object ActivityService {
         suspendTransaction(context.database) {
             val instant = context.clock.now()
             val reply = ActivityPayload.Reply(toId, instant, postId)
-            val activityId = ActivityTable.insert(reply)
-            onActivityCreated(context, toId, activityId)
+            val activityId = ActivityTable.insert(listOf(reply)).first()
+            onActivityCreated(context, mapOf(toId to activityId))
+        }
+    }
+
+    suspend fun addIndirectReplies(
+        context: AppContext,
+        subscribers: List<UserId>,
+        postId: CommunityPostId,
+        newUnreadId: CommunityPostId,
+    ) {
+        suspendTransaction(context.database) {
+            val instant = context.clock.now()
+            val payload = subscribers.map { subscriber ->
+                ActivityPayload.IndirectReplies(
+                    toId = subscriber,
+                    instant = instant,
+                    postId = postId,
+                    newUnreadId = newUnreadId,
+                )
+            }
+            val activityIds = ActivityTable.insert(payload).iterator()
+            val activity = payload.associate { payload ->
+                payload.toId to activityIds.next()
+            }
+            onActivityCreated(context, activity)
         }
     }
 
     suspend fun onActivityCreated(
         context: AppContext,
-        toId: UserId,
-        activityId: ActivityId,
+        activity: Map<UserId, ActivityId>,
     ) {
         suspendTransaction(context.database) {
-            ActivityNewUnreadsTable.upsert(toId, activityId)
+            ActivityNewUnreadsTable.upsert(activity)
         }
     }
 
@@ -161,12 +191,26 @@ object ActivityService {
         id: CommunityPostId,
         replyTo: CommunityPostsTable.Entry?,
     ) {
-        val replyOwnerId = replyTo?.ownerId ?: return
-        val isNotSelfReply = replyOwnerId != fromId
-        if (isNotSelfReply) {
-            suspendTransaction(context.database) {
-                ActivityService.addReply(context, replyOwnerId, id)
+        suspendTransaction(context.database) t@{
+            val replyToOwnerId = replyTo?.ownerId ?: return@t
+            val isNotSelfReply = replyToOwnerId != fromId
+            if (isNotSelfReply) {
+                ActivityService.addReply(context, replyToOwnerId, id)
             }
+            val root = CommunityPostsPathTable.selectRoot(id)
+                ?: error("bug: checked that this post is reply")
+            val subscribers = CommunitySubscribersTable.selectUsers(root)
+                .toSet()
+                .let { subscribers ->
+                    subscribers - replyToOwnerId - fromId
+                }
+                .toList()
+            addIndirectReplies(
+                context = context,
+                subscribers = subscribers,
+                postId = root,
+                newUnreadId = id,
+            )
         }
     }
 
@@ -187,6 +231,7 @@ object ActivityService {
     suspend fun onPostDeleted(context: AppContext, postId: CommunityPostId) {
         suspendTransaction(context.database) {
             ActivityTable.deleteReplies(postId)
+            ActivityTable.deleteIndirectReplies(postId)
         }
     }
 }

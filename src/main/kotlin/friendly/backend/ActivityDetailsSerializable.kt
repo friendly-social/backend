@@ -27,4 +27,20 @@ sealed interface ActivityDetailsSerializable {
             post = post.typed(),
         )
     }
+
+    @Serializable
+    @SerialName("indirect_replies")
+    data class IndirectReplies(
+        override val id: ActivityIdSerializable,
+        override val instant: Instant,
+        override val isRead: Boolean,
+        val post: CommunityPostDetailsSerializable.Plain,
+    ) : ActivityDetailsSerializable {
+        override fun typed(): ActivityDetails = ActivityDetails.IndirectReplies(
+            id = id.typed(),
+            instant = instant,
+            isRead = isRead,
+            post = post.typed(),
+        )
+    }
 }
