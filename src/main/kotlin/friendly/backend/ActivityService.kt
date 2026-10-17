@@ -176,6 +176,15 @@ object ActivityService {
         }
     }
 
+    suspend fun deleteIndirectReplies(
+        context: AppContext,
+        postId: CommunityPostId,
+    ) {
+        suspendTransaction(context.database) {
+            ActivityTable.deleteIndirectReplies(postId)
+        }
+    }
+
     suspend fun onActivityCreated(
         context: AppContext,
         activity: Map<UserId, ActivityId>,
@@ -185,6 +194,8 @@ object ActivityService {
         }
     }
 
+    // todo: do not send reply to the first user upstream who didn't yet read
+    //       reply activity entry yet.
     suspend fun onPostCreated(
         context: AppContext,
         fromId: UserId,
@@ -197,18 +208,19 @@ object ActivityService {
             if (isNotSelfReply) {
                 ActivityService.addReply(context, replyToOwnerId, id)
             }
-            val root = CommunityPostsPathTable.selectRoot(id)
+            val rootId = CommunityPostsPathTable.selectRoot(id)
                 ?: error("bug: checked that this post is reply")
-            val subscribers = CommunitySubscribersTable.selectUsers(root)
+            val subscribers = CommunitySubscribersTable.selectUsers(rootId)
                 .toSet()
-                .let { subscribers ->
-                    subscribers - replyToOwnerId - fromId
-                }
+                .let { subscribers -> subscribers - replyToOwnerId - fromId }
                 .toList()
+            suspendTransaction(context.database) {
+                ActivityTable.deleteIndirectReplies(rootId)
+            }
             addIndirectReplies(
                 context = context,
                 subscribers = subscribers,
-                postId = root,
+                postId = rootId,
                 newUnreadId = id,
             )
         }
@@ -228,10 +240,17 @@ object ActivityService {
         }
     }
 
+    // todo: when compression for indirect_replies is added,
+    //       deleteIndirectReplies should not be invoked if it can be rolled
+    //       back.
+    //
+    //       Create a separate table for an array new replies that are
+    //       compressed (also add a limit).
     suspend fun onPostDeleted(context: AppContext, postId: CommunityPostId) {
         suspendTransaction(context.database) {
             ActivityTable.deleteReplies(postId)
             ActivityTable.deleteIndirectReplies(postId)
+            ActivityTable.deleteIndirectRepliesByNewUnread(newUnreadId = postId)
         }
     }
 }

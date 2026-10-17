@@ -9,7 +9,6 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
-import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.r2dbc.batchInsert
 import org.jetbrains.exposed.v1.r2dbc.deleteWhere
@@ -104,8 +103,13 @@ object ActivityTable : Table("activity") {
 
     suspend fun deleteIndirectReplies(postId: CommunityPostId) {
         deleteWhere {
-            (indirectRepliesPostIdColumn eq postId.long) or
-                (indirectRepliesNewUnreadIdColumn eq postId.long)
+            indirectRepliesPostIdColumn eq postId.long
+        }
+    }
+
+    suspend fun deleteIndirectRepliesByNewUnread(newUnreadId: CommunityPostId) {
+        deleteWhere {
+            indirectRepliesNewUnreadIdColumn eq newUnreadId.long
         }
     }
 
