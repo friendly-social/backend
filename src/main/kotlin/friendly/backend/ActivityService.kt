@@ -176,15 +176,6 @@ object ActivityService {
         }
     }
 
-    suspend fun deleteIndirectReplies(
-        context: AppContext,
-        postId: CommunityPostId,
-    ) {
-        suspendTransaction(context.database) {
-            ActivityTable.deleteIndirectReplies(postId)
-        }
-    }
-
     suspend fun onActivityCreated(
         context: AppContext,
         activity: Map<UserId, ActivityId>,
@@ -215,7 +206,10 @@ object ActivityService {
                 .let { subscribers -> subscribers - replyToOwnerId - fromId }
                 .toList()
             suspendTransaction(context.database) {
-                ActivityTable.deleteIndirectReplies(rootId)
+                ActivityTable.deleteIndirectRepliesByUserId(
+                    toId = fromId,
+                    postId = rootId,
+                )
             }
             addIndirectReplies(
                 context = context,
@@ -232,11 +226,20 @@ object ActivityService {
         ids: List<CommunityPostId>,
     ) {
         suspendTransaction(context.database) {
-            val markedIds = ActivityTable.markRepliesAsRead(
+            val markedReplies = ActivityTable.markRepliesAsRead(
                 toId = fromId,
                 postIds = ids,
             )
-            ActivityNewUnreadsTable.delete(activityIds = markedIds)
+            // todo: mark only if all posts are read, when multi-posts are
+            //       implemented
+            val markedIndirectReplies = ActivityTable
+                .markIndirectRepliesAsRead(
+                    toId = fromId,
+                    newUnreadIds = ids,
+                )
+            ActivityNewUnreadsTable.delete(
+                activityIds = markedReplies + markedIndirectReplies,
+            )
         }
     }
 

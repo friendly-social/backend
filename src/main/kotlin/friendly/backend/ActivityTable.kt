@@ -101,13 +101,25 @@ object ActivityTable : Table("activity") {
         }
     }
 
+    suspend fun deleteIndirectRepliesByUserId(
+        toId: UserId,
+        postId: CommunityPostId,
+    ) {
+        deleteWhere {
+            (toIdColumn eq toId.long) and
+                (indirectRepliesPostIdColumn eq postId.long)
+        }
+    }
+
     suspend fun deleteIndirectReplies(postId: CommunityPostId) {
         deleteWhere {
             indirectRepliesPostIdColumn eq postId.long
         }
     }
 
-    suspend fun deleteIndirectRepliesByNewUnread(newUnreadId: CommunityPostId) {
+    suspend fun deleteIndirectRepliesByNewUnread(
+        newUnreadId: CommunityPostId,
+    ) {
         deleteWhere {
             indirectRepliesNewUnreadIdColumn eq newUnreadId.long
         }
@@ -122,6 +134,26 @@ object ActivityTable : Table("activity") {
             returning = listOf(idColumn),
             where = {
                 (toIdColumn eq toId.long) and (replyPostIdColumn inList rawIds)
+            },
+        ) { statement ->
+            statement[isReadColumn] = true
+        }
+            .map { row ->
+                ActivityId(row[idColumn])
+            }
+            .toList()
+    }
+
+    suspend fun markIndirectRepliesAsRead(
+        toId: UserId,
+        newUnreadIds: List<CommunityPostId>,
+    ): List<ActivityId> {
+        val rawIds = newUnreadIds.map { id -> id.long }
+        return updateReturning(
+            returning = listOf(idColumn),
+            where = {
+                (toIdColumn eq toId.long) and
+                    (indirectRepliesNewUnreadIdColumn inList rawIds)
             },
         ) { statement ->
             statement[isReadColumn] = true
