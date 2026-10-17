@@ -101,12 +101,13 @@ object ActivityTable : Table("activity") {
         }
     }
 
-    suspend fun deleteIndirectRepliesByUserId(
-        toId: UserId,
+    suspend fun deleteIndirectRepliesByUserIds(
+        toIds: List<UserId>,
         postId: CommunityPostId,
     ) {
+        val rawIds = toIds.map { id -> id.long }
         deleteWhere {
-            (toIdColumn eq toId.long) and
+            (toIdColumn inList rawIds) and
                 (indirectRepliesPostIdColumn eq postId.long)
         }
     }

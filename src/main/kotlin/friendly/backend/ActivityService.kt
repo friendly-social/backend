@@ -206,8 +206,8 @@ object ActivityService {
                 .let { subscribers -> subscribers - replyToOwnerId - fromId }
                 .toList()
             suspendTransaction(context.database) {
-                ActivityTable.deleteIndirectRepliesByUserId(
-                    toId = fromId,
+                ActivityTable.deleteIndirectRepliesByUserIds(
+                    toIds = subscribers,
                     postId = rootId,
                 )
             }
