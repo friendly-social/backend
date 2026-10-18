@@ -187,10 +187,13 @@ object ActivityService {
 
     // todo: do not send reply to the first user upstream who didn't yet read
     //       reply activity entry yet.
+    // todo: calculate common post reply, so user is sent where latest activity
+    //       actually is and not just to the root post
     suspend fun onPostCreated(
         context: AppContext,
         fromId: UserId,
         id: CommunityPostId,
+        text: CommunityPostText,
         replyTo: CommunityPostsTable.Entry?,
     ) {
         suspendTransaction(context.database) t@{
@@ -199,18 +202,17 @@ object ActivityService {
             if (isNotSelfReply) {
                 ActivityService.addReply(context, replyToOwnerId, id)
             }
+            if (text.isEmoji) return@t
             val rootId = CommunityPostsPathTable.selectRoot(id)
                 ?: error("bug: checked that this post is reply")
             val subscribers = CommunitySubscribersTable.selectUsers(rootId)
                 .toSet()
                 .let { subscribers -> subscribers - replyToOwnerId - fromId }
                 .toList()
-            suspendTransaction(context.database) {
-                ActivityTable.deleteIndirectRepliesByUserIds(
-                    toIds = subscribers,
-                    postId = rootId,
-                )
-            }
+            ActivityTable.deleteIndirectRepliesByUserIds(
+                toIds = subscribers,
+                postId = rootId,
+            )
             addIndirectReplies(
                 context = context,
                 subscribers = subscribers,

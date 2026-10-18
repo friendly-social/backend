@@ -114,6 +114,7 @@ object CommunityService {
                 fromId = authorization.id,
                 replyTo = replyToEntry,
                 id = id,
+                text = text,
             )
             NotificationsService.onPostCreated(
                 context = context,
