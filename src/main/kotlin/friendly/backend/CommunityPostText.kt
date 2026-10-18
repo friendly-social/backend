@@ -1,9 +1,9 @@
 package friendly.backend
 
-import com.vdurmont.emoji.EmojiManager
+import net.fellbaum.jemoji.EmojiManager
 
 data class CommunityPostText private constructor(val string: String) {
-    val isOnlyEmojis: Boolean get() = EmojiManager.isOnlyEmojis(string)
+    val isOnlyEmojis: Boolean get() = EmojiManager.isEmoji(string)
 
     fun serializable(): CommunityPostTextSerializable =
         CommunityPostTextSerializable(string)

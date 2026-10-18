@@ -50,6 +50,6 @@ dependencies {
     implementation(libs.aqueue)
     implementation(libs.graceful.scope)
     implementation(libs.firebase.admin)
-    implementation(libs.emoji.java)
+    implementation(libs.jemoji)
     runtimeOnly(libs.postgres.r2dbc)
 }

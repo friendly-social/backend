@@ -13,6 +13,7 @@ graceful-scope = "1.0.0"
 firebase-admin = "9.7.1"
 r2dbc = "1.0.1.RELEASE"
 emoji-java = "5.1.1"
+jemoji = "2.1.0"
 
 [libraries]
 
@@ -47,7 +48,7 @@ firebase-admin = { module = "com.google.firebase:firebase-admin", version.ref = 
 aqueue = { module = "me.y9san9.aqueue:core", version.ref = "aqueue" }
 graceful-scope = { module = "me.y9san9.graceful:graceful-scope", version.ref = "graceful-scope" }
 
-emoji-java = { module = "com.vdurmont:emoji-java", version.ref = "emoji-java" }
+jemoji = { module = "net.fellbaum:jemoji", version.ref = "jemoji" }
 
 [plugins]
 
