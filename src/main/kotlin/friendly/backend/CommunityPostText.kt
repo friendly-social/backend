@@ -3,7 +3,7 @@ package friendly.backend
 import com.vdurmont.emoji.EmojiManager
 
 data class CommunityPostText private constructor(val string: String) {
-    val isEmoji: Boolean get() = EmojiManager.isEmoji(string)
+    val isOnlyEmojis: Boolean get() = EmojiManager.isOnlyEmojis(string)
 
     fun serializable(): CommunityPostTextSerializable =
         CommunityPostTextSerializable(string)

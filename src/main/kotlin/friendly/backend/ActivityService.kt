@@ -202,7 +202,7 @@ object ActivityService {
             if (isNotSelfReply) {
                 ActivityService.addReply(context, replyToOwnerId, id)
             }
-            if (text.isEmoji) return@t
+            if (text.isOnlyEmojis) return@t
             val upstream = CommunityPostsPathTable.selectUpstream(id)
             val rootId = upstream.getOrElse(0) {
                 error("bug: checked that this post is reply")
