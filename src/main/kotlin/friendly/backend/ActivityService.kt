@@ -112,25 +112,17 @@ object ActivityService {
         fromId: UserId,
         entries: List<ActivityEntry>,
     ): List<ActivityDetails> {
-        val postIds = entries.map { entry ->
+        val postIds = entries.flatMap { entry ->
             when (entry) {
-                is Reply -> entry.postId
-                is IndirectReplies -> entry.postId
+                is Reply -> listOf(entry.postId)
+                is IndirectReplies -> listOf(
+                    entry.postId,
+                    entry.commonDenominatorId,
+                )
             }
         }
         val posts = CommunityService
             .detailsFromIds(context, fromId, postIds, withDeleted = false)
-            .iterator()
-        val commonDenominatorDescriptors = CommunityPostsTable
-            .selectById(
-                ids = entries
-                    .filterIsInstance<ActivityEntry.IndirectReplies>()
-                    .map { entry -> entry.commonDenominatorId },
-                withDeleted = true,
-            )
-            .map { entry ->
-                entry?.descriptor ?: error("Cannot find all entries")
-            }
             .iterator()
         return entries.map { entry ->
             when (entry) {
@@ -145,8 +137,7 @@ object ActivityService {
                     instant = entry.instant,
                     isRead = entry.isRead,
                     post = posts.next() as Plain,
-                    commonDenominatorDescriptor =
-                    commonDenominatorDescriptors.next(),
+                    commonDenominator = posts.next() as CommunityPostDetails,
                 )
             }
         }

@@ -35,15 +35,14 @@ sealed interface ActivityDetailsSerializable {
         override val instant: Instant,
         override val isRead: Boolean,
         val post: CommunityPostDetailsSerializable.Plain,
-        val commonDenominatorDescriptor: CommunityPostDescriptorSerializable,
+        val commonDenominator: CommunityPostDetailsSerializable,
     ) : ActivityDetailsSerializable {
         override fun typed(): ActivityDetails = ActivityDetails.IndirectReplies(
             id = id.typed(),
             instant = instant,
             isRead = isRead,
             post = post.typed(),
-            commonDenominatorDescriptor =
-            commonDenominatorDescriptor.typed(),
+            commonDenominator = commonDenominator.typed(),
         )
     }
 }
