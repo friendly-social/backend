@@ -17,5 +17,6 @@ sealed interface ActivityPayload {
         override val instant: Instant,
         val postId: CommunityPostId,
         val newUnreadId: CommunityPostId,
+        val commonDenominatorId: CommunityPostId,
     ) : ActivityPayload
 }

@@ -31,7 +31,7 @@ object CommunityNewUnreadsTable : Table("community_new_unreads") {
     suspend fun selectTransitiveNewUnreads(
         userId: UserId,
         postIds: List<CommunityPostId>,
-    ): Map<CommunityPostId, CommunityPostId?> {
+    ): Map<CommunityPostId, CommunityPostId> {
         val postIdMax = postIdColumn.max()
         val rawIds = postIds.map { id -> id.long }
         return join(
@@ -51,7 +51,6 @@ object CommunityNewUnreadsTable : Table("community_new_unreads") {
                 CommunityPostId(row[CommunityPostsPathTable.replyToColumn]) to
                     CommunityPostId(row[postIdMax]!!)
             }
-            .withDefault { null }
     }
 
     suspend fun delete(userId: UserId, postIds: List<CommunityPostId>) {

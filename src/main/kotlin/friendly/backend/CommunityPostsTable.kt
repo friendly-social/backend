@@ -255,6 +255,9 @@ object CommunityPostsTable : Table("community_posts") {
 
         val ownerId: UserId?
 
+        val descriptor: CommunityPostDescriptor
+            get() = CommunityPostDescriptor(id, accessHash)
+
         data class Plain(
             override val id: CommunityPostId,
             override val accessHash: CommunityPostAccessHash,

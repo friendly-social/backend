@@ -23,6 +23,7 @@ sealed interface ActivityEntry {
         override val isRead: Boolean,
         val postId: CommunityPostId,
         val newUnreadId: CommunityPostId,
+        val commonDenominatorId: CommunityPostId,
     ) : ActivityEntry
 }
 

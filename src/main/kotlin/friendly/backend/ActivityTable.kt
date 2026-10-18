@@ -31,6 +31,8 @@ object ActivityTable : Table("activity") {
         long("indirect_replies_post_id").nullable()
     private val indirectRepliesNewUnreadIdColumn =
         long("indirect_replies_new_unread_id").nullable()
+    private val indirectRepliesCommonDenominatorIdColumn =
+        long("indirect_replies_common_denominator_id").nullable()
 
     override val primaryKey = PrimaryKey(idColumn)
 
@@ -49,6 +51,8 @@ object ActivityTable : Table("activity") {
                     statement[indirectRepliesPostIdColumn] = payload.postId.long
                     statement[indirectRepliesNewUnreadIdColumn] =
                         payload.newUnreadId.long
+                    statement[indirectRepliesCommonDenominatorIdColumn] =
+                        payload.commonDenominatorId.long
                 }
             }
         }.map { row ->
@@ -105,6 +109,22 @@ object ActivityTable : Table("activity") {
             }
             .map { row -> row.toEntry() as Reply }
             .toList()
+    }
+
+    suspend fun selectUnreadIndirectReplies(
+        toIds: List<UserId>,
+        postId: CommunityPostId,
+    ): Map<UserId, ActivityEntry.IndirectReplies> {
+        val rawIds = toIds.map { id -> id.long }
+        return selectAll()
+            .where {
+                (indirectRepliesPostIdColumn eq postId.long) and
+                    (toIdColumn inList rawIds) and
+                    (isReadColumn eq false)
+            }
+            .map { row -> row.toEntry() as IndirectReplies }
+            .toList()
+            .associateBy { entry -> entry.toId }
     }
 
     suspend fun deleteReplies(postId: CommunityPostId) {
@@ -212,6 +232,10 @@ object ActivityTable : Table("activity") {
                 val newUnreadId = this[indirectRepliesNewUnreadIdColumn]
                     ?.let(::CommunityPostId)
                     ?: error("Invalid ResultRow")
+                val commonDenominatorId =
+                    this[indirectRepliesCommonDenominatorIdColumn]
+                        ?.let(::CommunityPostId)
+                        ?: error("Invalid ResultRow")
                 ActivityEntry.IndirectReplies(
                     id = id,
                     toId = toId,
@@ -219,6 +243,7 @@ object ActivityTable : Table("activity") {
                     isRead = isRead,
                     postId = postId,
                     newUnreadId = newUnreadId,
+                    commonDenominatorId = commonDenominatorId,
                 )
             }
         }

@@ -70,6 +70,21 @@ object CommunityPostsPathTable : Table("community_posts_path") {
             .toList()
             .map { row -> CommunityPostId(row[replyToColumn]) }
 
+    suspend fun selectUpstreamBatch(
+        postIds: List<CommunityPostId>,
+    ): Map<CommunityPostId, List<CommunityPostId>> {
+        val rawIds = postIds.map { id -> id.long }
+        return selectAll()
+            .where { postIdColumn inList rawIds }
+            .orderBy(replyToDepthColumn)
+            .toList()
+            .groupBy(
+                keySelector = { row -> CommunityPostId(row[postIdColumn]) },
+                valueTransform = { row -> CommunityPostId(row[replyToColumn]) },
+            )
+            .withDefault { emptyList() }
+    }
+
     suspend fun selectReplies(
         postIds: List<CommunityPostId>,
         maxDepth: Long,

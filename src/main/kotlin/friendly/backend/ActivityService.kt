@@ -121,6 +121,17 @@ object ActivityService {
         val posts = CommunityService
             .detailsFromIds(context, fromId, postIds, withDeleted = false)
             .iterator()
+        val commonDenominatorDescriptors = CommunityPostsTable
+            .selectById(
+                ids = entries
+                    .filterIsInstance<ActivityEntry.IndirectReplies>()
+                    .map { entry -> entry.commonDenominatorId },
+                withDeleted = true,
+            )
+            .map { entry ->
+                entry?.descriptor ?: error("Cannot find all entries")
+            }
+            .iterator()
         return entries.map { entry ->
             when (entry) {
                 is Reply -> ActivityDetails.Reply(
@@ -134,6 +145,8 @@ object ActivityService {
                     instant = entry.instant,
                     isRead = entry.isRead,
                     post = posts.next() as Plain,
+                    commonDenominatorDescriptor =
+                    commonDenominatorDescriptors.next(),
                 )
             }
         }
@@ -154,18 +167,44 @@ object ActivityService {
 
     suspend fun addIndirectReplies(
         context: AppContext,
-        subscribers: List<UserId>,
+        fromId: UserId,
         postId: CommunityPostId,
-        newUnreadId: CommunityPostId,
+        text: CommunityPostText,
+        replyToOwnerId: UserId,
     ) {
-        suspendTransaction(context.database) {
+        suspendTransaction(context.database) t@{
+            if (text.isOnlyEmojis) return@t
+            val upstream = CommunityPostsPathTable.selectUpstream(postId)
+            val rootId = upstream.getOrElse(0) { return@t }
+            val alreadyNotified = ActivityTable
+                .selectUnreadReplies(upstream)
+                .map { reply -> reply.toId }
+            val subscribers = CommunitySubscribersTable.selectUsers(rootId)
+                .toSet()
+                .let { subscribers ->
+                    subscribers - replyToOwnerId - fromId - alreadyNotified
+                }
+                .toList()
+            val commonDenominators = findCommonDenominators(
+                context = context,
+                subscribers = subscribers,
+                postId = postId,
+                upstream = upstream,
+            )
+            ActivityTable.deleteIndirectRepliesByUserIds(
+                toIds = subscribers,
+                postId = rootId,
+            )
             val instant = context.clock.now()
             val payload = subscribers.map { subscriber ->
+                val commonDenominatorId =
+                    commonDenominators.getValue(subscriber)
                 ActivityPayload.IndirectReplies(
                     toId = subscriber,
                     instant = instant,
-                    postId = postId,
-                    newUnreadId = newUnreadId,
+                    postId = rootId,
+                    newUnreadId = postId,
+                    commonDenominatorId = commonDenominatorId,
                 )
             }
             val activityIds = ActivityTable.insert(payload).iterator()
@@ -173,6 +212,39 @@ object ActivityService {
                 payload.toId to activityIds.next()
             }
             onActivityCreated(context, activity)
+        }
+    }
+
+    suspend fun findCommonDenominators(
+        context: AppContext,
+        subscribers: List<UserId>,
+        postId: CommunityPostId,
+        upstream: List<CommunityPostId>,
+    ): Map<UserId, CommunityPostId> {
+        val commonDenominatorBases =
+            ActivityTable.selectUnreadIndirectReplies(
+                toIds = subscribers,
+                postId = upstream.first(),
+            )
+                .mapValues { entry -> entry.value?.commonDenominatorId }
+        val commonDenominatorUpstreams =
+            CommunityPostsPathTable.selectUpstreamBatch(
+                postIds = commonDenominatorBases.values.filterNotNull(),
+            )
+        return subscribers.associateWith local@{ userId ->
+            val commonDenominatorBase = commonDenominatorBases[userId]
+            if (commonDenominatorBase == null) return@local upstream.last()
+            val commonDenominatorUpstream = commonDenominatorUpstreams
+                .getValue(commonDenominatorBase)
+            var commonDenominatorId = upstream.first()
+            for ((left, right) in upstream.zip(commonDenominatorUpstream)) {
+                if (left == right) {
+                    commonDenominatorId = left
+                } else {
+                    break
+                }
+            }
+            commonDenominatorId
         }
     }
 
@@ -185,8 +257,6 @@ object ActivityService {
         }
     }
 
-    // todo: do not send reply to the first user upstream who didn't yet read
-    //       reply activity entry yet.
     // todo: calculate common post reply, so user is sent where latest activity
     //       actually is and not just to the root post
     suspend fun onPostCreated(
@@ -200,31 +270,14 @@ object ActivityService {
             val replyToOwnerId = replyTo?.ownerId ?: return@t
             val isNotSelfReply = replyToOwnerId != fromId
             if (isNotSelfReply) {
-                ActivityService.addReply(context, replyToOwnerId, id)
+                addReply(context, replyToOwnerId, id)
             }
-            if (text.isOnlyEmojis) return@t
-            val upstream = CommunityPostsPathTable.selectUpstream(id)
-            val rootId = upstream.getOrElse(0) {
-                error("bug: checked that this post is reply")
-            }
-            val alreadyNotified = ActivityTable
-                .selectUnreadReplies(upstream)
-                .map { reply -> reply.toId }
-            val subscribers = CommunitySubscribersTable.selectUsers(rootId)
-                .toSet()
-                .let { subscribers ->
-                    subscribers - replyToOwnerId - fromId - alreadyNotified
-                }
-                .toList()
-            ActivityTable.deleteIndirectRepliesByUserIds(
-                toIds = subscribers,
-                postId = rootId,
-            )
             addIndirectReplies(
                 context = context,
-                subscribers = subscribers,
-                postId = rootId,
-                newUnreadId = id,
+                fromId = fromId,
+                postId = id,
+                text = text,
+                replyToOwnerId = replyToOwnerId,
             )
         }
     }
@@ -239,8 +292,6 @@ object ActivityService {
                 toId = fromId,
                 postIds = ids,
             )
-            // todo: mark only if all posts are read, when multi-posts are
-            //       implemented
             val markedIndirectReplies = ActivityTable
                 .markIndirectRepliesAsRead(
                     toId = fromId,
@@ -252,12 +303,6 @@ object ActivityService {
         }
     }
 
-    // todo: when compression for indirect_replies is added,
-    //       deleteIndirectReplies should not be invoked if it can be rolled
-    //       back.
-    //
-    //       Create a separate table for an array new replies that are
-    //       compressed (also add a limit).
     suspend fun onPostDeleted(context: AppContext, postId: CommunityPostId) {
         suspendTransaction(context.database) {
             ActivityTable.deleteReplies(postId)
