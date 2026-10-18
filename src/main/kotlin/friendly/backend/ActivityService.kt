@@ -224,7 +224,7 @@ object ActivityService {
             )
         return subscribers.associateWith local@{ userId ->
             val commonDenominatorBase = commonDenominatorBases[userId]
-            if (commonDenominatorBase == null) return@local upstream.last()
+            if (commonDenominatorBase == null) return@local postId
             val commonDenominatorUpstream = commonDenominatorUpstreams
                 .getValue(commonDenominatorBase)
             var commonDenominatorId = upstream.first()
