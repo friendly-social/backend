@@ -203,11 +203,18 @@ object ActivityService {
                 ActivityService.addReply(context, replyToOwnerId, id)
             }
             if (text.isEmoji) return@t
-            val rootId = CommunityPostsPathTable.selectRoot(id)
-                ?: error("bug: checked that this post is reply")
+            val upstream = CommunityPostsPathTable.selectUpstream(id)
+            val rootId = upstream.getOrElse(0) {
+                error("bug: checked that this post is reply")
+            }
+            val alreadyNotified = ActivityTable
+                .selectUnreadReplies(upstream)
+                .map { reply -> reply.toId }
             val subscribers = CommunitySubscribersTable.selectUsers(rootId)
                 .toSet()
-                .let { subscribers -> subscribers - replyToOwnerId - fromId }
+                .let { subscribers ->
+                    subscribers - replyToOwnerId - fromId - alreadyNotified
+                }
                 .toList()
             ActivityTable.deleteIndirectRepliesByUserIds(
                 toIds = subscribers,

@@ -95,6 +95,18 @@ object ActivityTable : Table("activity") {
         ?.get(idColumn)
         ?.let(::ActivityId)
 
+    suspend fun selectUnreadReplies(
+        postIds: List<CommunityPostId>,
+    ): List<ActivityEntry.Reply> {
+        val rawIds = postIds.map { id -> id.long }
+        return selectAll()
+            .where {
+                (replyPostIdColumn inList rawIds) and (isReadColumn eq false)
+            }
+            .map { row -> row.toEntry() as Reply }
+            .toList()
+    }
+
     suspend fun deleteReplies(postId: CommunityPostId) {
         deleteWhere {
             replyPostIdColumn eq postId.long
