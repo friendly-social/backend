@@ -17,4 +17,10 @@ sealed interface ActivityPayload {
         override val instant: Instant,
         val postId: CommunityPostId,
     ) : ActivityPayload
+
+    data class FriendRequest(
+        override val toId: UserId,
+        override val instant: Instant,
+        val fromId: UserId,
+    ) : ActivityPayload
 }

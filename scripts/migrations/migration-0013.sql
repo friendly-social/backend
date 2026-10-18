@@ -1,4 +1,3 @@
-
 ALTER TABLE activity ADD
     indirect_replies_common_denominator_id BIGINT;
 

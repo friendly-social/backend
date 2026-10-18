@@ -32,6 +32,11 @@ object ActivityTable : Table("activity") {
     private val indirectRepliesPostIdColumn =
         long("indirect_replies_post_id").nullable()
 
+    private val friendRequestFromIdColumn =
+        long("friend_request_from_id").nullable()
+    private val friendRequestIsCompleteColumn =
+        bool("friend_request_is_complete").nullable()
+
     override val primaryKey = PrimaryKey(idColumn)
 
     suspend fun insert(payload: List<ActivityPayload>): List<ActivityId> =
@@ -47,6 +52,11 @@ object ActivityTable : Table("activity") {
                 is IndirectReplies -> {
                     statement[typeColumn] = Type.IndirectReplies
                     statement[indirectRepliesPostIdColumn] = payload.postId.long
+                }
+                is FriendRequest -> {
+                    statement[typeColumn] = Type.FriendRequest
+                    statement[friendRequestFromIdColumn] = payload.fromId.long
+                    statement[friendRequestIsCompleteColumn] = false
                 }
             }
         }.map { row ->
@@ -165,6 +175,22 @@ object ActivityTable : Table("activity") {
         }
     }
 
+    suspend fun completeLastFriendRequest(toId: UserId, fromId: UserId) {
+        val id = select(idColumn)
+            .where {
+                (toIdColumn eq toId.long) and
+                    (typeColumn eq Type.FriendRequest) and
+                    (friendRequestFromIdColumn eq fromId.long)
+            }
+            .orderBy(idColumn, DESC)
+            .firstOrNull()
+            ?.get(idColumn)
+            ?: return
+        update({ idColumn eq id }) { statement ->
+            statement[friendRequestIsCompleteColumn] = true
+        }
+    }
+
     suspend fun markRepliesAsRead(
         toId: UserId,
         postIds: List<CommunityPostId>,
@@ -244,11 +270,27 @@ object ActivityTable : Table("activity") {
                     postId = postId,
                 )
             }
+            FriendRequest -> {
+                val fromId = this[friendRequestFromIdColumn]
+                    ?.let(::UserId)
+                    ?: error("Invalid ResultRow")
+                val isComplete = this[friendRequestIsCompleteColumn]
+                    ?: error("Invalid ResultRow")
+                ActivityEntry.FriendRequest(
+                    id = id,
+                    toId = toId,
+                    instant = instant,
+                    isRead = isRead,
+                    fromId = fromId,
+                    isComplete = isComplete,
+                )
+            }
         }
     }
 
     enum class Type {
         Reply,
         IndirectReplies,
+        FriendRequest,
     }
 }
