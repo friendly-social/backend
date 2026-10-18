@@ -112,15 +112,24 @@ object ActivityService {
         fromId: UserId,
         entries: List<ActivityEntry>,
     ): List<ActivityDetails> {
-        val postIds = entries.map { entry ->
+        val postIds = entries.mapNotNull { entry ->
             when (entry) {
                 is Reply -> entry.postId
                 is IndirectReplies -> entry.postId
+                is FriendRequest -> null
+            }
+        }
+        val userIds = entries.mapNotNull { entry ->
+            when (entry) {
+                is Reply -> null
+                is IndirectReplies -> null
+                is FriendRequest -> entry.fromId
             }
         }
         val posts = CommunityService
             .detailsFromIds(context, fromId, postIds, withDeleted = false)
             .iterator()
+        val users = UsersService.details(context, fromId, userIds.distinct())
         return entries.map { entry ->
             when (entry) {
                 is Reply -> ActivityDetails.Reply(
@@ -134,6 +143,13 @@ object ActivityService {
                     instant = entry.instant,
                     isRead = entry.isRead,
                     post = posts.next() as Plain,
+                )
+                is FriendRequest -> ActivityDetails.FriendRequest(
+                    id = entry.id,
+                    instant = entry.instant,
+                    isRead = entry.isRead,
+                    from = users.getValue(entry.fromId),
+                    isComplete = entry.isComplete,
                 )
             }
         }
@@ -173,6 +189,29 @@ object ActivityService {
                 payload.toId to activityIds.next()
             }
             onActivityCreated(context, activity)
+        }
+    }
+
+    suspend fun onFriendRequestCreated(
+        context: AppContext,
+        fromId: UserId,
+        toId: UserId,
+    ) {
+        suspendTransaction(context.database) {
+            val instant = context.clock.now()
+            val request = ActivityPayload.FriendRequest(toId, instant, fromId)
+            val activityId = ActivityTable.insert(listOf(request)).first()
+            onActivityCreated(context, mapOf(toId to activityId))
+        }
+    }
+
+    suspend fun onFriendRequestAccepted(
+        context: AppContext,
+        fromId: UserId,
+        toId: UserId,
+    ) {
+        suspendTransaction(context.database) {
+            ActivityTable.completeLastFriendRequest(toId = toId, fromId = fromId)
         }
     }
 

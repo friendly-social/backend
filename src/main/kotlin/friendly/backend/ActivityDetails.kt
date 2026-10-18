@@ -38,4 +38,21 @@ sealed interface ActivityDetails {
                 post = post.serializable(),
             )
     }
+
+    data class FriendRequest(
+        override val id: ActivityId,
+        override val instant: Instant,
+        override val isRead: Boolean,
+        val from: UserDetails,
+        val isComplete: Boolean,
+    ) : ActivityDetails {
+        override fun serializable(): ActivityDetailsSerializable =
+            ActivityDetailsSerializable.FriendRequest(
+                id = id.serializable(),
+                instant = instant,
+                isRead = isRead,
+                from = from.serializable(),
+                isComplete = isComplete,
+            )
+    }
 }
