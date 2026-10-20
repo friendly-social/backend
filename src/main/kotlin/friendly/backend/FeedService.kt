@@ -10,6 +10,9 @@ object FeedService {
         data class Success(val details: FeedQueue) : QueueResult
     }
 
+    // Temporal flag to experiment how it will go without extended network
+    val enableExtendedNetwork = false
+
     suspend fun queue(
         context: AppContext,
         authorization: Authorization,
@@ -76,7 +79,11 @@ object FeedService {
                 )
             }
             .sortedByDescending { entry -> entry.scoreMoreFilledFirst() }
-        var entries = neighboringNetwork + extendedNetwork
+        var entries = if (enableExtendedNetwork) {
+            neighboringNetwork + extendedNetwork
+        } else {
+            neighboringNetwork
+        }
         entries = entries.filter { entry ->
             incoming[entry.details.id] == Request
         } + entries.filter { entry ->
