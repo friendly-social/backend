@@ -165,16 +165,14 @@ object ActivityService {
                 postIds = unreads.values.flatten(),
             )
         indirectReplies.associate local@{ entry ->
-            val unreads = unreads.getValue(entry.postId)
+            val unreads = unreads[entry.postId].orEmpty()
             if (unreads.isEmpty()) {
-                error(
-                    "bug: it's not supposed to have zero unreads and indirect replies notification at the same time",
-                )
-            }
-            if (unreads.size == 1) {
                 return@local entry.id to entry.postId
             }
-            var commonDenominator = upstreams.getValue(unreads[0]).first()
+            if (unreads.size == 1) {
+                return@local entry.id to unreads.first()
+            }
+            var commonDenominator = entry.postId
             if (unreads.size > limit) {
                 return@local entry.id to commonDenominator
             }
