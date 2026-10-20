@@ -46,6 +46,7 @@ suspend fun main(): Unit = coroutineScope {
     val files = bootstrapFiles()
     val s3 = bootstrapS3()
     val firebase = bootstrapFirebase()
+    val feed = bootstrapFeed()
 
     bootstrapSmtp2go { smtp2go ->
         bootstrapNotifications { notifications ->
@@ -60,6 +61,7 @@ suspend fun main(): Unit = coroutineScope {
             context.provide(scope)
             context.provide(Json)
             context.provide(smtp2go)
+            context.provide(feed)
 
             NotificationsService.restoreScheduled(context)
             FilesCleanupService.attach(context)

@@ -105,4 +105,12 @@ class AppContext {
         check(_s3 == null) { "S3Context is already provided" }
         _s3 = s3
     }
+
+    private var _feed: FeedContext? = null
+    val feed: FeedContext
+        get() = _feed ?: error("Feed is not configured")
+    fun provide(feed: FeedContext?) {
+        check(_feed == null) { "FeedContext is already provided" }
+        _feed = feed
+    }
 }
