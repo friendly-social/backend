@@ -9,7 +9,7 @@ import org.jetbrains.exposed.v1.r2dbc.upsert
 
 /**
  * Table of root posts that user has viewed. Actual blue dots that needs to be
- * shown are stored under [CommunityNewUnreadsTable].
+ * shown are stored under [CommunityUnreadsTable].
  */
 object CommunityViewersTable : Table("community_viewers") {
     val userIdColumn = long("user_id")

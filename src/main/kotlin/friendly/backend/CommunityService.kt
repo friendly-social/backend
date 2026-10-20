@@ -163,7 +163,7 @@ object CommunityService {
     ) {
         val viewers = CommunityViewersTable.selectUsers(rootId)
         if (viewers.isEmpty()) return
-        CommunityNewUnreadsTable.upsert(
+        CommunityUnreadsTable.upsert(
             postId = postId,
             userIds = (viewers.toSet() - fromId).toList(),
         )
@@ -445,13 +445,15 @@ object CommunityService {
                 limit = 1,
                 withDeleted = true,
             )
+            val upstream = CommunityPostsPathTable.selectUpstream(postId = id)
             if (replies.isEmpty()) {
                 CommunityPostsTable.delete(id)
                 CommunityPostsPathTable.deletePostsById(id)
+                CommunityUnreadsTable.delete(id)
             } else {
                 CommunityPostsTable.updateToDeleted(id)
             }
-            ActivityService.onPostDeleted(context, id)
+            ActivityService.onPostDeleted(context, id, upstream)
             return Success
         }
 
@@ -513,7 +515,7 @@ object CommunityService {
                 postId = root ?: post.id,
             )
             val upstream = CommunityPostsPathTable.selectUpstream(post.id)
-            CommunityNewUnreadsTable.delete(
+            CommunityUnreadsTable.markAsRead(
                 userId = authorization.id,
                 postIds = upstream + post.id,
             )
@@ -540,7 +542,7 @@ object CommunityService {
                 }
                 .let { markAsRead -> markAsRead + replyIds }
                 .distinct()
-            CommunityNewUnreadsTable.delete(
+            CommunityUnreadsTable.markAsRead(
                 userId = authorization.id,
                 postIds = markAsRead,
             )
@@ -593,7 +595,7 @@ object CommunityService {
             )
         }
         val newUnreads = suspendTransaction(context.database) {
-            CommunityNewUnreadsTable.selectTransitiveNewUnreads(
+            CommunityUnreadsTable.selectTransitiveNewUnreads(
                 userId = fromId,
                 postIds = entries.map { entry -> entry.id },
             )

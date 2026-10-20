@@ -63,6 +63,21 @@ object CommunityPostsPathTable : Table("community_posts_path") {
             ?.get(replyToColumn)
             ?.let(::CommunityPostId)
 
+    suspend fun selectRootBatch(
+        postIds: List<CommunityPostId>,
+    ): Map<CommunityPostId, CommunityPostId> {
+        val rawIds = postIds.map { id -> id.long }
+        return selectAll()
+            .where {
+                (postIdColumn inList rawIds) and (replyToDepthColumn eq 0)
+            }
+            .toList()
+            .associate { row ->
+                CommunityPostId(row[postIdColumn]) to
+                    CommunityPostId(row[replyToColumn])
+            }
+    }
+
     suspend fun selectUpstream(postId: CommunityPostId): List<CommunityPostId> =
         selectAll()
             .where { postIdColumn eq postId.long }

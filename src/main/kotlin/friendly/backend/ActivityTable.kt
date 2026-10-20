@@ -3,12 +3,14 @@ package friendly.backend
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
+import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.r2dbc.batchInsert
 import org.jetbrains.exposed.v1.r2dbc.deleteWhere
@@ -29,10 +31,6 @@ object ActivityTable : Table("activity") {
 
     private val indirectRepliesPostIdColumn =
         long("indirect_replies_post_id").nullable()
-    private val indirectRepliesNewUnreadIdColumn =
-        long("indirect_replies_new_unread_id").nullable()
-    private val indirectRepliesCommonDenominatorIdColumn =
-        long("indirect_replies_common_denominator_id").nullable()
 
     override val primaryKey = PrimaryKey(idColumn)
 
@@ -49,10 +47,6 @@ object ActivityTable : Table("activity") {
                 is IndirectReplies -> {
                     statement[typeColumn] = Type.IndirectReplies
                     statement[indirectRepliesPostIdColumn] = payload.postId.long
-                    statement[indirectRepliesNewUnreadIdColumn] =
-                        payload.newUnreadId.long
-                    statement[indirectRepliesCommonDenominatorIdColumn] =
-                        payload.commonDenominatorId.long
                 }
             }
         }.map { row ->
@@ -133,6 +127,12 @@ object ActivityTable : Table("activity") {
         }
     }
 
+    suspend fun deleteIndirectReplies(postId: CommunityPostId) {
+        deleteWhere {
+            indirectRepliesPostIdColumn eq postId.long
+        }
+    }
+
     suspend fun deleteIndirectRepliesByUserIds(
         toIds: List<UserId>,
         postId: CommunityPostId,
@@ -144,17 +144,24 @@ object ActivityTable : Table("activity") {
         }
     }
 
-    suspend fun deleteIndirectReplies(postId: CommunityPostId) {
+    suspend fun deleteIndirectRepliesWithoutUnreads(postId: CommunityPostId) {
+        val noEntries = notExists(
+            CommunityPostsPathTable
+                .join(
+                    CommunityUnreadsTable,
+                    JoinType.INNER,
+                    onColumn = CommunityPostsPathTable.postIdColumn,
+                    otherColumn = CommunityUnreadsTable.postIdColumn,
+                )
+                .selectAll()
+                .where {
+                    (CommunityPostsPathTable.replyToColumn eq postId.long) and
+                        (CommunityPostsPathTable.replyToDepthColumn eq 0) and
+                        (CommunityUnreadsTable.userIdColumn eq toIdColumn)
+                },
+        )
         deleteWhere {
-            indirectRepliesPostIdColumn eq postId.long
-        }
-    }
-
-    suspend fun deleteIndirectRepliesByNewUnread(
-        newUnreadId: CommunityPostId,
-    ) {
-        deleteWhere {
-            indirectRepliesNewUnreadIdColumn eq newUnreadId.long
+            (indirectRepliesPostIdColumn eq postId.long) and noEntries
         }
     }
 
@@ -179,14 +186,14 @@ object ActivityTable : Table("activity") {
 
     suspend fun markIndirectRepliesAsRead(
         toId: UserId,
-        newUnreadIds: List<CommunityPostId>,
+        postIds: List<CommunityPostId>,
     ): List<ActivityId> {
-        val rawIds = newUnreadIds.map { id -> id.long }
+        val rawIds = postIds.map { id -> id.long }
         return updateReturning(
             returning = listOf(idColumn),
             where = {
                 (toIdColumn eq toId.long) and
-                    (indirectRepliesNewUnreadIdColumn inList rawIds)
+                    (indirectRepliesPostIdColumn inList rawIds)
             },
         ) { statement ->
             statement[isReadColumn] = true
@@ -229,21 +236,12 @@ object ActivityTable : Table("activity") {
                 val postId = this[indirectRepliesPostIdColumn]
                     ?.let(::CommunityPostId)
                     ?: error("Invalid ResultRow")
-                val newUnreadId = this[indirectRepliesNewUnreadIdColumn]
-                    ?.let(::CommunityPostId)
-                    ?: error("Invalid ResultRow")
-                val commonDenominatorId =
-                    this[indirectRepliesCommonDenominatorIdColumn]
-                        ?.let(::CommunityPostId)
-                        ?: error("Invalid ResultRow")
                 ActivityEntry.IndirectReplies(
                     id = id,
                     toId = toId,
                     instant = instant,
                     isRead = isRead,
                     postId = postId,
-                    newUnreadId = newUnreadId,
-                    commonDenominatorId = commonDenominatorId,
                 )
             }
         }
