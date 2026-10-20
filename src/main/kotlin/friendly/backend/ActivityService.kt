@@ -153,11 +153,12 @@ object ActivityService {
         fromId: UserId,
         indirectReplies: List<ActivityEntry.IndirectReplies>,
     ): Map<ActivityId, CommunityPostId> = suspendTransaction(context.database) {
+        val limit = 100
         val unreads = CommunityUnreadsTable
             .selectTransitiveGroupedUnreads(
                 userId = fromId,
                 postIds = indirectReplies.map { entry -> entry.postId },
-                limit = 11,
+                limit = limit + 1,
             )
         val upstreams = CommunityPostsPathTable
             .selectUpstreamBatch(
@@ -170,8 +171,14 @@ object ActivityService {
                     "bug: it's not supposed to have zero unreads and indirect replies notification at the same time",
                 )
             }
-            var i = 0
+            if (unreads.size == 1) {
+                return@local entry.id to entry.postId
+            }
             var commonDenominator = upstreams.getValue(unreads[0]).first()
+            if (unreads.size > limit) {
+                return@local entry.id to commonDenominator
+            }
+            var i = 0
             while (true) {
                 val ancestors = unreads.map { unread ->
                     upstreams.getValue(unread).getOrNull(i)
