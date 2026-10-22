@@ -1,3 +1,3 @@
 ALTER TABLE activity
-    ADD friend_request_from_id BIGINT,
-    ADD friend_request_is_mutual BOOL;
+    ADD new_request_from_id BIGINT,
+    ADD new_request_is_mutual BOOL;

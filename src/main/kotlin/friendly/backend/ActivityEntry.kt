@@ -24,13 +24,13 @@ sealed interface ActivityEntry {
         val postId: CommunityPostId,
     ) : ActivityEntry
 
-    data class FriendRequest(
+    data class NewRequest(
         override val id: ActivityId,
         override val toId: UserId,
         override val instant: Instant,
         override val isRead: Boolean,
         val fromId: UserId,
-        val isComplete: Boolean,
+        val isMutual: Boolean,
     ) : ActivityEntry
 }
 

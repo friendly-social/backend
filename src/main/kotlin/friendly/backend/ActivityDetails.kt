@@ -9,14 +9,14 @@ sealed interface ActivityDetails {
 
     fun serializable(): ActivityDetailsSerializable
 
-    data class Reply(
+    data class NewReply(
         override val id: ActivityId,
         override val instant: Instant,
         override val isRead: Boolean,
         val post: CommunityPostDetails.Plain,
     ) : ActivityDetails {
         override fun serializable(): ActivityDetailsSerializable =
-            ActivityDetailsSerializable.Reply(
+            ActivityDetailsSerializable.NewReply(
                 id = id.serializable(),
                 instant = instant,
                 isRead = isRead,
@@ -41,20 +41,20 @@ sealed interface ActivityDetails {
             )
     }
 
-    data class FriendRequest(
+    data class NewRequest(
         override val id: ActivityId,
         override val instant: Instant,
         override val isRead: Boolean,
         val from: UserDetails,
-        val isComplete: Boolean,
+        val isMutual: Boolean,
     ) : ActivityDetails {
         override fun serializable(): ActivityDetailsSerializable =
-            ActivityDetailsSerializable.FriendRequest(
+            ActivityDetailsSerializable.NewRequest(
                 id = id.serializable(),
                 instant = instant,
                 isRead = isRead,
                 from = from.serializable(),
-                isComplete = isComplete,
+                isMutual = isMutual,
             )
     }
 }

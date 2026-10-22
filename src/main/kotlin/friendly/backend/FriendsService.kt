@@ -172,11 +172,15 @@ object FriendsService {
                     fromId = authorization.id,
                     isMutual = isMutual,
                 )
+                ActivityService.onNewRequest(
+                    context = context,
+                    fromId = authorization.id,
+                    toId = userId,
+                    isMutual = isMutual,
+                )
                 NotificationsService.schedule(context, notification)
             }
         }
-        val isAccepting = incoming == Request
-        val isRequesting = shouldSendNotification && incoming != Decline
         return suspendTransaction(context.database) {
             FriendsTable.upsert(
                 fromId = authorization.id,
@@ -186,19 +190,6 @@ object FriendsService {
                 declineForgetRandom = 0.milliseconds,
                 instant = context.clock.now(),
             )
-            if (isAccepting) {
-                ActivityService.onFriendRequestAccepted(
-                    context = context,
-                    fromId = userId,
-                    toId = authorization.id,
-                )
-            } else if (isRequesting) {
-                ActivityService.onFriendRequestCreated(
-                    context = context,
-                    fromId = authorization.id,
-                    toId = userId,
-                )
-            }
             RequestResult.Success
         }
     }

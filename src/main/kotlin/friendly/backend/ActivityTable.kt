@@ -32,10 +32,10 @@ object ActivityTable : Table("activity") {
     private val indirectRepliesPostIdColumn =
         long("indirect_replies_post_id").nullable()
 
-    private val friendRequestFromIdColumn =
-        long("friend_request_from_id").nullable()
-    private val friendRequestIsCompleteColumn =
-        bool("friend_request_is_complete").nullable()
+    private val newRequestFromIdColumn =
+        long("new_request_from_id").nullable()
+    private val newRequestIsMutualColumn =
+        bool("new_request_is_mutual").nullable()
 
     override val primaryKey = PrimaryKey(idColumn)
 
@@ -45,18 +45,18 @@ object ActivityTable : Table("activity") {
             statement[toIdColumn] = payload.toId.long
             statement[instantColumn] = payload.instant
             when (payload) {
-                is Reply -> {
-                    statement[typeColumn] = Type.Reply
+                is NewReply -> {
+                    statement[typeColumn] = Type.NewReply
                     statement[replyPostIdColumn] = payload.postId.long
                 }
                 is IndirectReplies -> {
                     statement[typeColumn] = Type.IndirectReplies
                     statement[indirectRepliesPostIdColumn] = payload.postId.long
                 }
-                is FriendRequest -> {
-                    statement[typeColumn] = Type.FriendRequest
-                    statement[friendRequestFromIdColumn] = payload.fromId.long
-                    statement[friendRequestIsCompleteColumn] = false
+                is NewRequest -> {
+                    statement[typeColumn] = Type.NewRequest
+                    statement[newRequestFromIdColumn] = payload.fromId.long
+                    statement[newRequestIsMutualColumn] = payload.isMutual
                 }
             }
         }.map { row ->
@@ -175,22 +175,6 @@ object ActivityTable : Table("activity") {
         }
     }
 
-    suspend fun completeLastFriendRequest(toId: UserId, fromId: UserId) {
-        val id = select(idColumn)
-            .where {
-                (toIdColumn eq toId.long) and
-                    (typeColumn eq Type.FriendRequest) and
-                    (friendRequestFromIdColumn eq fromId.long)
-            }
-            .orderBy(idColumn, DESC)
-            .firstOrNull()
-            ?.get(idColumn)
-            ?: return
-        update({ idColumn eq id }) { statement ->
-            statement[friendRequestIsCompleteColumn] = true
-        }
-    }
-
     suspend fun markRepliesAsRead(
         toId: UserId,
         postIds: List<CommunityPostId>,
@@ -252,7 +236,7 @@ object ActivityTable : Table("activity") {
         val instant = this[instantColumn]
         val isRead = this[isReadColumn]
         return when (this[typeColumn]) {
-            Reply -> {
+            NewReply -> {
                 val postId = this[replyPostIdColumn]
                     ?.let(::CommunityPostId)
                     ?: error("Invalid ResultRow")
@@ -270,27 +254,27 @@ object ActivityTable : Table("activity") {
                     postId = postId,
                 )
             }
-            FriendRequest -> {
-                val fromId = this[friendRequestFromIdColumn]
+            NewRequest -> {
+                val fromId = this[newRequestFromIdColumn]
                     ?.let(::UserId)
                     ?: error("Invalid ResultRow")
-                val isComplete = this[friendRequestIsCompleteColumn]
+                val isMutual = this[newRequestIsMutualColumn]
                     ?: error("Invalid ResultRow")
-                ActivityEntry.FriendRequest(
+                ActivityEntry.NewRequest(
                     id = id,
                     toId = toId,
                     instant = instant,
                     isRead = isRead,
                     fromId = fromId,
-                    isComplete = isComplete,
+                    isMutual = isMutual,
                 )
             }
         }
     }
 
     enum class Type {
-        Reply,
+        NewReply,
         IndirectReplies,
-        FriendRequest,
+        NewRequest,
     }
 }
