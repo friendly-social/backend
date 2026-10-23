@@ -272,6 +272,12 @@ object ActivityService {
         isMutual: Boolean,
     ) {
         suspendTransaction(context.database) {
+            // mark REVERSED pair as read, because that's what was sent before
+            val activityIds = ActivityTable.markNewRequestAsRead(
+                toId = fromId,
+                fromId = toId,
+            )
+            ActivityNewUnreadsTable.delete(activityIds)
             val instant = context.clock.now()
             val request = ActivityPayload.NewRequest(
                 toId = toId,
@@ -281,6 +287,21 @@ object ActivityService {
             )
             val activityId = ActivityTable.insert(listOf(request)).first()
             onActivityCreated(context, mapOf(toId to activityId))
+        }
+    }
+
+    suspend fun onNewDecline(
+        context: AppContext,
+        fromId: UserId,
+        toId: UserId,
+    ) {
+        suspendTransaction(context.database) {
+            // mark REVERSED pair as read, because that's what was sent before
+            val activityIds = ActivityTable.markNewRequestAsRead(
+                toId = fromId,
+                fromId = toId,
+            )
+            ActivityNewUnreadsTable.delete(activityIds)
         }
     }
 

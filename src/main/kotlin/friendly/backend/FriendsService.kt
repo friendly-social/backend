@@ -93,6 +93,12 @@ object FriendsService {
                     declineForgetRandom = 0.milliseconds,
                     instant = context.clock.now(),
                 )
+                ActivityService.onNewRequest(
+                    context = context,
+                    fromId = userId,
+                    toId = authorization.id,
+                    isMutual = true,
+                )
                 Success
             } else {
                 FriendTokenExpired
@@ -163,25 +169,25 @@ object FriendsService {
                 ),
             ).map { entry -> entry?.decision }
         }
-        val shouldSendNotification = outgoing == null
-        if (shouldSendNotification) {
-            if (incoming != Decline) {
-                val isMutual = incoming == Request
-                val notification = NotificationPayload.NewRequest(
-                    toId = userId,
-                    fromId = authorization.id,
-                    isMutual = isMutual,
-                )
-                ActivityService.onNewRequest(
-                    context = context,
-                    fromId = authorization.id,
-                    toId = userId,
-                    isMutual = isMutual,
-                )
-                NotificationsService.schedule(context, notification)
-            }
-        }
         return suspendTransaction(context.database) {
+            val shouldSendNotification = outgoing == null
+            if (shouldSendNotification) {
+                if (incoming != Decline) {
+                    val isMutual = incoming == Request
+                    val notification = NotificationPayload.NewRequest(
+                        toId = userId,
+                        fromId = authorization.id,
+                        isMutual = isMutual,
+                    )
+                    ActivityService.onNewRequest(
+                        context = context,
+                        fromId = authorization.id,
+                        toId = userId,
+                        isMutual = isMutual,
+                    )
+                    NotificationsService.schedule(context, notification)
+                }
+            }
             FriendsTable.upsert(
                 fromId = authorization.id,
                 toId = userId,
@@ -231,6 +237,11 @@ object FriendsService {
                 declineTimes = declineTimes + 1,
                 declineForgetRandom = declineForgetRandom,
                 instant = context.clock.now(),
+            )
+            ActivityService.onNewDecline(
+                context = context,
+                fromId = authorization.id,
+                toId = userId,
             )
             DeclineResult.Success
         }

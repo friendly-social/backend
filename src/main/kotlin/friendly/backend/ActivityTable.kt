@@ -214,6 +214,23 @@ object ActivityTable : Table("activity") {
             .toList()
     }
 
+    suspend fun markNewRequestAsRead(
+        toId: UserId,
+        fromId: UserId,
+    ): List<ActivityId> = updateReturning(
+        returning = listOf(idColumn),
+        where = {
+            (toIdColumn eq toId.long) and
+                (newRequestFromIdColumn eq fromId.long)
+        },
+    ) { statement ->
+        statement[isReadColumn] = true
+    }
+        .map { row ->
+            ActivityId(row[idColumn])
+        }
+        .toList()
+
     suspend fun selectById(ids: List<ActivityId>): List<ActivityEntry?> {
         val rawIds = ids.map { id -> id.long }
         val map = selectAll()
