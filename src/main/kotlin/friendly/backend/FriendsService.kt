@@ -95,8 +95,8 @@ object FriendsService {
                 )
                 ActivityService.onNewRequest(
                     context = context,
-                    fromId = userId,
-                    toId = authorization.id,
+                    fromId = authorization.id,
+                    toId = userId,
                     isMutual = true,
                 )
                 Success
