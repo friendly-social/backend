@@ -1,5 +1,7 @@
 package friendly.backend
 
+import com.google.firebase.messaging.ApnsConfig
+import com.google.firebase.messaging.Aps
 import com.google.firebase.messaging.FirebaseMessagingException
 import com.google.firebase.messaging.Message
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +21,15 @@ object FirebaseService {
         val message = Message.builder()
             .putData("id", "${id.long}")
             .setToken(firebaseToken.string)
+            .setApnsConfig(
+                ApnsConfig.builder()
+                    .setAps(
+                        Aps.builder()
+                            .setMutableContent(true)
+                            .build(),
+                    )
+                    .build(),
+            )
             .build()
         logger.info("Send: $id")
         return try {
