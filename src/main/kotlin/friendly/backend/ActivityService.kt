@@ -69,11 +69,6 @@ object ActivityService {
         data object Ok : AcknowledgeUnreadsResult
     }
 
-    sealed interface ReadAllResult {
-        data object Unauthorized : ReadAllResult
-        data object Ok : ReadAllResult
-    }
-
     suspend fun acknowledgeUnreads(
         context: AppContext,
         authorization: Authorization,
@@ -82,9 +77,14 @@ object ActivityService {
             .authorize(context, authorization)
             .onFailure { return Unauthorized }
         return suspendTransaction(context.database) {
-            ActivityNewUnreadsTable.delete(authorization.id)
+            ActivityNewUnreadsTable.deleteByUserId(authorization.id)
             AcknowledgeUnreadsResult.Ok
         }
+    }
+
+    sealed interface ReadAllResult {
+        data object Unauthorized : ReadAllResult
+        data object Ok : ReadAllResult
     }
 
     suspend fun readAll(
@@ -96,7 +96,7 @@ object ActivityService {
             .onFailure { return Unauthorized }
         return suspendTransaction(context.database) {
             ActivityTable.markAllAsRead(authorization.id)
-            ActivityNewUnreadsTable.delete(authorization.id)
+            ActivityNewUnreadsTable.deleteByUserId(authorization.id)
             ReadAllResult.Ok
         }
     }
@@ -121,7 +121,7 @@ object ActivityService {
                 return@suspendTransaction NotFound
             }
             ActivityTable.markAsRead(id)
-            ActivityNewUnreadsTable.delete(authorization.id, id)
+            ActivityNewUnreadsTable.deleteByIds(listOf(id))
             Success
         }
     }
@@ -296,7 +296,7 @@ object ActivityService {
                 toId = fromId,
                 fromId = toId,
             )
-            ActivityNewUnreadsTable.delete(activityIds)
+            ActivityNewUnreadsTable.deleteByIds(activityIds)
             val instant = context.clock.now()
             val request = ActivityPayload.NewRequest(
                 toId = toId,
@@ -320,7 +320,7 @@ object ActivityService {
                 toId = fromId,
                 fromId = toId,
             )
-            ActivityNewUnreadsTable.delete(activityIds)
+            ActivityNewUnreadsTable.deleteByIds(activityIds)
         }
     }
 
@@ -375,7 +375,7 @@ object ActivityService {
                 toId = fromId,
                 postIds = rootIds.filter { rootId -> rootId !in hasUnreads },
             )
-            ActivityNewUnreadsTable.delete(
+            ActivityNewUnreadsTable.deleteByIds(
                 activityIds = markedReplies + markedIndirectReplies,
             )
         }
