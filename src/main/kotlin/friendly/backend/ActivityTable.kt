@@ -247,6 +247,14 @@ object ActivityTable : Table("activity") {
         }
     }
 
+    suspend fun markAllAsRead(toId: UserId) {
+        update({
+            (toIdColumn eq toId.long) and (isReadColumn eq false)
+        }) { statement ->
+            statement[isReadColumn] = true
+        }
+    }
+
     private fun ResultRow.toEntry(): ActivityEntry {
         val id = ActivityId(this[idColumn])
         val toId = UserId(this[toIdColumn])

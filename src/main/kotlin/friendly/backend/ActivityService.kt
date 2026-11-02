@@ -69,6 +69,11 @@ object ActivityService {
         data object Ok : AcknowledgeUnreadsResult
     }
 
+    sealed interface ReadAllResult {
+        data object Unauthorized : ReadAllResult
+        data object Ok : ReadAllResult
+    }
+
     suspend fun acknowledgeUnreads(
         context: AppContext,
         authorization: Authorization,
@@ -79,6 +84,20 @@ object ActivityService {
         return suspendTransaction(context.database) {
             ActivityNewUnreadsTable.delete(authorization.id)
             AcknowledgeUnreadsResult.Ok
+        }
+    }
+
+    suspend fun readAll(
+        context: AppContext,
+        authorization: Authorization,
+    ): ReadAllResult {
+        AuthService
+            .authorize(context, authorization)
+            .onFailure { return Unauthorized }
+        return suspendTransaction(context.database) {
+            ActivityTable.markAllAsRead(authorization.id)
+            ActivityNewUnreadsTable.delete(authorization.id)
+            ReadAllResult.Ok
         }
     }
 

@@ -85,4 +85,18 @@ object ActivityRouting {
             }
         }
     }
+
+    fun readAll(context: AppContext) {
+        context.routing.post("/activity/read/all") {
+            val authorization = call.authorization()
+            val result = ActivityService.readAll(
+                context = context,
+                authorization = authorization,
+            )
+            when (result) {
+                is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
+                is Ok -> call.respond(HttpStatusCode.OK)
+            }
+        }
+    }
 }
