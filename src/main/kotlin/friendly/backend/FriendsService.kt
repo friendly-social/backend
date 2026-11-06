@@ -102,12 +102,22 @@ object FriendsService {
                     declineForgetRandom = 0.milliseconds,
                     instant = context.clock.now(),
                 )
-                ActivityService.onNewRequest(
-                    context = context,
-                    fromId = authorization.id,
-                    toId = entry.ownerId,
-                    isMutual = true,
-                )
+                val outgoing = FriendsTable.select(
+                    descriptors = listOf(
+                        FriendsTable.Descriptor(
+                            fromId = authorization.id,
+                            toId = entry.ownerId,
+                        ),
+                    ),
+                ).first()
+                if (outgoing == null) {
+                    ActivityService.onNewRequest(
+                        context = context,
+                        fromId = authorization.id,
+                        toId = entry.ownerId,
+                        isMutual = true,
+                    )
+                }
                 Success
             } else {
                 FriendTokenExpired
