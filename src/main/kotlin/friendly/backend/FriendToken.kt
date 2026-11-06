@@ -7,7 +7,7 @@ data class FriendToken private constructor(val string: String) {
         FriendTokenSerializable(string)
 
     companion object {
-        val Length = 256
+        val Length = 16
 
         val Alphabet =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.~"

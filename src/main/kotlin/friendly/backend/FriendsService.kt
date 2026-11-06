@@ -2,13 +2,16 @@ package friendly.backend
 
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 
 object FriendsService {
 
     sealed interface GenerateResult {
         data object Unauthorized : GenerateResult
-        data class Success(val token: FriendToken) : GenerateResult
+        data class Success(val token: FriendToken, val expiration: Instant) :
+            GenerateResult
     }
 
     suspend fun generate(
@@ -19,13 +22,19 @@ object FriendsService {
             .authorize(context, authorization)
             .onFailure { return GenerateResult.Unauthorized }
         return suspendTransaction(context.database) {
-            val previousToken = FriendTokensTable.select(authorization.id)
-            val token = if (previousToken == null) {
-                generateForce(context, authorization.id)
+            val previousEntry = FriendTokensTable.select(authorization.id)
+            val now = context.clock.now()
+            if (
+                previousEntry != null &&
+                previousEntry.expiration - now > 1.hours
+            ) {
+                GenerateResult.Success(
+                    token = previousEntry.token,
+                    expiration = previousEntry.expiration,
+                )
             } else {
-                previousToken
+                generateForce(context, authorization.id)
             }
-            GenerateResult.Success(token)
         }
     }
 
@@ -37,19 +46,19 @@ object FriendsService {
             .authorize(context, authorization)
             .onFailure { return GenerateResult.Unauthorized }
         return suspendTransaction(context.database) {
-            val token = generateForce(context, authorization.id)
-            GenerateResult.Success(token)
+            generateForce(context, authorization.id)
         }
     }
 
     suspend fun generateForce(
         context: AppContext,
         userId: UserId,
-    ): FriendToken = suspendTransaction(context.database) {
+    ): GenerateResult.Success = suspendTransaction(context.database) {
         FriendTokensTable.delete(userId)
-        FriendToken.random(context.random).also { token ->
-            FriendTokensTable.insert(token, userId)
-        }
+        val token = FriendToken.random(context.random)
+        val expiration = context.clock.now() + 1.days
+        FriendTokensTable.insert(userId, token, expiration)
+        GenerateResult.Success(token, expiration)
     }
 
     sealed interface AddResult {
@@ -62,31 +71,31 @@ object FriendsService {
         context: AppContext,
         authorization: Authorization,
         token: FriendToken,
-        userId: UserId,
     ): AddResult {
         AuthService
             .authorize(context, authorization)
             .onFailure { return AddResult.Unauthorized }
-        if (userId == authorization.id) {
+        if (addViaPermanentLink(context, authorization, token)) {
             return Success
         }
-        if (addViaPermanentLink(context, authorization, token, userId)) {
-            return Success
-        }
-        return suspendTransaction(context.database) {
-            val isTokenValid = FriendTokensTable.exists(userId, token)
+        return suspendTransaction(context.database) t@{
+            val entry = FriendTokensTable.select(token)
+                ?: return@t AddResult.FriendTokenExpired
+            if (entry.ownerId == authorization.id) {
+                return@t AddResult.Success
+            }
+            val isTokenValid = context.clock.now() < entry.expiration
             if (isTokenValid) {
-                FriendTokensTable.delete(userId)
                 FriendsTable.upsert(
                     fromId = authorization.id,
-                    toId = userId,
+                    toId = entry.ownerId,
                     decision = Request,
                     declineTimes = 0,
                     declineForgetRandom = 0.milliseconds,
                     instant = context.clock.now(),
                 )
                 FriendsTable.upsert(
-                    fromId = userId,
+                    fromId = entry.ownerId,
                     toId = authorization.id,
                     decision = Request,
                     declineTimes = 0,
@@ -96,7 +105,7 @@ object FriendsService {
                 ActivityService.onNewRequest(
                     context = context,
                     fromId = authorization.id,
-                    toId = userId,
+                    toId = entry.ownerId,
                     isMutual = true,
                 )
                 Success
@@ -110,15 +119,11 @@ object FriendsService {
         context: AppContext,
         authorization: Authorization,
         token: FriendToken,
-        userId: UserId,
     ): Boolean {
-        val linkExists = PermanentLinks.Entries
-            .any { (permanentToken, permanentUserId) ->
-                permanentToken == token && permanentUserId == userId
-            }
-        if (!linkExists) {
-            return false
-        }
+        val link = PermanentLinks.Entries
+            .firstOrNull { (permanentToken) -> permanentToken == token }
+            ?: return false
+        val userId = link.userId
         suspendTransaction(context.database) {
             FriendsTable.upsert(
                 fromId = authorization.id,

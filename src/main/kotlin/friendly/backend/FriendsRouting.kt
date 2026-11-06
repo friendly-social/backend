@@ -6,11 +6,15 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.post
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.time.Instant
 
 object FriendsRouting {
 
     @Serializable
-    private data class GenerateResponse(val token: FriendTokenSerializable)
+    private data class GenerateResponse(
+        val token: FriendTokenSerializable,
+        val expiration: Instant,
+    )
 
     fun generate(context: AppContext) {
         context.routing.post("/friends/generate") {
@@ -44,13 +48,11 @@ object FriendsRouting {
     private fun FriendsService.GenerateResult.Success.toResponse(): GenerateResponse =
         GenerateResponse(
             token = token.serializable(),
+            expiration = expiration,
         )
 
     @Serializable
-    private data class AddBody(
-        val token: FriendTokenSerializable,
-        val userId: UserIdSerializable,
-    )
+    private data class AddBody(val token: FriendTokenSerializable)
 
     @Serializable
     private sealed interface AddResponse {
@@ -71,7 +73,6 @@ object FriendsRouting {
                 context = context,
                 authorization = authorization,
                 token = body.token.typed(),
-                userId = body.userId.typed(),
             )
             if (result is Unauthorized) {
                 call.respond(HttpStatusCode.Unauthorized)
