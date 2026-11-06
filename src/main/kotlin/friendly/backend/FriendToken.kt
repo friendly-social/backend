@@ -10,7 +10,7 @@ data class FriendToken private constructor(val string: String) {
         val Length = 16
 
         val Alphabet =
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.~"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
 
         fun random(random: Random): FriendToken {
             val string = buildString {

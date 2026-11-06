@@ -12,7 +12,7 @@ data class FilePreuploadAccessHash private constructor(val string: String) {
         val Length = 256
 
         val Alphabet =
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.~"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
 
         fun random(random: Random): FilePreuploadAccessHash {
             val string = buildString {
