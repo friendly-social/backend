@@ -3,6 +3,7 @@ package friendly.backend
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
+import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -82,6 +83,33 @@ object FriendsRouting {
                     is Success -> Success
                 }
                 call.respond(response)
+            }
+        }
+    }
+
+    @Serializable
+    data class AddDetailsResponse(
+        val nickname: NicknameSerializable,
+        val description: UserDescriptionSerializable,
+        val interests: InterestListSerializable,
+        val avatar: FileDescriptorSerializable?,
+    )
+
+    fun addDetails(context: AppContext) {
+        context.routing.get("/friends/add/details/{token}") {
+            val token = call.friendToken("token")
+            val result = FriendsService.addDetails(context, token)
+            when (result) {
+                is NotFound -> call.respond(HttpStatusCode.NotFound)
+                is Success -> {
+                    val response = AddDetailsResponse(
+                        nickname = result.nickname.serializable(),
+                        description = result.description.serializable(),
+                        avatar = result.avatar?.serializable(),
+                        interests = result.interests.serializable(),
+                    )
+                    call.respond(response)
+                }
             }
         }
     }

@@ -1,5 +1,6 @@
 package friendly.backend
 
+import io.ktor.server.routing.RoutingCall
 import kotlin.random.Random
 
 data class FriendToken private constructor(val string: String) {
@@ -28,4 +29,9 @@ data class FriendToken private constructor(val string: String) {
             return FriendToken(string)
         }
     }
+}
+
+fun RoutingCall.friendToken(name: String): FriendToken {
+    val string = parameters[name] ?: error("$name is not optional")
+    return FriendTokenSerializable(string).typed()
 }

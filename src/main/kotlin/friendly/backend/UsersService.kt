@@ -115,6 +115,7 @@ object UsersService {
         user.accessHash == descriptor.accessHash
     }
 
+    // Legacy, because it works with lists of ids instead of map
     suspend fun detailsLegacy(
         context: AppContext,
         fromId: UserId,

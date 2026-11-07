@@ -156,6 +156,39 @@ object FriendsService {
         return true
     }
 
+    sealed interface AddDetailsResult {
+        data object NotFound : AddDetailsResult
+        data class Success(
+            val nickname: Nickname,
+            val description: UserDescription,
+            val interests: InterestList,
+            val avatar: FileDescriptor?,
+        ) : AddDetailsResult
+    }
+
+    suspend fun addDetails(
+        context: AppContext,
+        token: FriendToken,
+    ): AddDetailsResult {
+        return suspendTransaction(context.database) t@{
+            val entry = FriendTokensTable.select(token)
+                ?: return@t AddDetailsResult.NotFound
+            val userEntry = UsersTable
+                .select(listOf(entry.ownerId))
+                .getValue(entry.ownerId)
+            val interests = InterestsTable
+                .select(listOf(userEntry.id))
+                .first()
+                .list
+            AddDetailsResult.Success(
+                nickname = userEntry.nickname,
+                description = userEntry.description,
+                avatar = userEntry.avatar,
+                interests = interests,
+            )
+        }
+    }
+
     sealed interface RequestResult {
         data object Unauthorized : RequestResult
         data object NotFound : RequestResult

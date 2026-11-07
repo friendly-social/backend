@@ -99,6 +99,7 @@ private fun embeddedServer(
         FriendsRouting.generate(context)
         FriendsRouting.generateForce(context)
         FriendsRouting.add(context)
+        FriendsRouting.addDetails(context)
         FriendsRouting.request(context)
         FriendsRouting.decline(context)
         NetworkRouting.details(context)
