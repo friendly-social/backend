@@ -85,6 +85,15 @@ object FriendsService {
                 return@t AddResult.Success
             }
             val isTokenValid = context.clock.now() < entry.expiration
+            val outgoing = FriendsTable.select(
+                descriptors = listOf(
+                    FriendsTable.Descriptor(
+                        fromId = authorization.id,
+                        toId = entry.ownerId,
+                    ),
+                ),
+            ).first()
+            val shouldSendNotification = outgoing == null
             if (isTokenValid) {
                 FriendsTable.upsert(
                     fromId = authorization.id,
@@ -102,15 +111,7 @@ object FriendsService {
                     declineForgetRandom = 0.milliseconds,
                     instant = context.clock.now(),
                 )
-                val outgoing = FriendsTable.select(
-                    descriptors = listOf(
-                        FriendsTable.Descriptor(
-                            fromId = authorization.id,
-                            toId = entry.ownerId,
-                        ),
-                    ),
-                ).first()
-                if (outgoing == null) {
+                if (shouldSendNotification) {
                     ActivityService.onNewRequest(
                         context = context,
                         fromId = authorization.id,
