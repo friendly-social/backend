@@ -88,29 +88,40 @@ object FriendsRouting {
     }
 
     @Serializable
-    data class AddDetailsResponse(
-        val nickname: NicknameSerializable,
-        val description: UserDescriptionSerializable,
-        val interests: InterestListSerializable,
-        val avatar: FileDescriptorSerializable?,
-    )
+    sealed interface AddDetailsResponse {
+
+        @Serializable
+        @SerialName("ok")
+        data class Ok(
+            val nickname: NicknameSerializable,
+            val description: UserDescriptionSerializable,
+            val interests: InterestListSerializable,
+            val avatar: FileDescriptorSerializable?,
+            val expiration: Instant,
+        ) : AddDetailsResponse
+
+        @Serializable
+        @SerialName("expired")
+        data object Expired : AddDetailsResponse
+    }
 
     fun addDetails(context: AppContext) {
         context.routing.get("/friends/add/details/{token}") {
             val token = call.friendToken("token")
             val result = FriendsService.addDetails(context, token)
-            when (result) {
-                is NotFound -> call.respond(HttpStatusCode.NotFound)
+            val response = when (result) {
+                is Expired -> AddDetailsResponse.Expired
                 is Success -> {
-                    val response = AddDetailsResponse(
+                    AddDetailsResponse.Ok(
                         nickname = result.nickname.serializable(),
                         description = result.description.serializable(),
                         avatar = result.avatar?.serializable(),
                         interests = result.interests.serializable(),
+                        expiration = result.expiration,
                     )
-                    call.respond(response)
                 }
             }
+            call.respond(response)
         }
     }
 

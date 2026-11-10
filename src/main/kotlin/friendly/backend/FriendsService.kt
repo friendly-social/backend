@@ -81,10 +81,13 @@ object FriendsService {
         return suspendTransaction(context.database) t@{
             val entry = FriendTokensTable.select(token)
                 ?: return@t AddResult.FriendTokenExpired
+            val isTokenValid = context.clock.now() < entry.expiration
+            if (!isTokenValid) {
+                return@t FriendTokenExpired
+            }
             if (entry.ownerId == authorization.id) {
                 return@t AddResult.Success
             }
-            val isTokenValid = context.clock.now() < entry.expiration
             val outgoing = FriendsTable.select(
                 descriptors = listOf(
                     FriendsTable.Descriptor(
@@ -94,35 +97,31 @@ object FriendsService {
                 ),
             ).first()
             val shouldSendNotification = outgoing == null
-            if (isTokenValid) {
-                FriendsTable.upsert(
+            FriendsTable.upsert(
+                fromId = authorization.id,
+                toId = entry.ownerId,
+                decision = Request,
+                declineTimes = 0,
+                declineForgetRandom = 0.milliseconds,
+                instant = context.clock.now(),
+            )
+            FriendsTable.upsert(
+                fromId = entry.ownerId,
+                toId = authorization.id,
+                decision = Request,
+                declineTimes = 0,
+                declineForgetRandom = 0.milliseconds,
+                instant = context.clock.now(),
+            )
+            if (shouldSendNotification) {
+                ActivityService.onNewRequest(
+                    context = context,
                     fromId = authorization.id,
                     toId = entry.ownerId,
-                    decision = Request,
-                    declineTimes = 0,
-                    declineForgetRandom = 0.milliseconds,
-                    instant = context.clock.now(),
+                    isMutual = true,
                 )
-                FriendsTable.upsert(
-                    fromId = entry.ownerId,
-                    toId = authorization.id,
-                    decision = Request,
-                    declineTimes = 0,
-                    declineForgetRandom = 0.milliseconds,
-                    instant = context.clock.now(),
-                )
-                if (shouldSendNotification) {
-                    ActivityService.onNewRequest(
-                        context = context,
-                        fromId = authorization.id,
-                        toId = entry.ownerId,
-                        isMutual = true,
-                    )
-                }
-                Success
-            } else {
-                FriendTokenExpired
             }
+            Success
         }
     }
 
@@ -157,12 +156,13 @@ object FriendsService {
     }
 
     sealed interface AddDetailsResult {
-        data object NotFound : AddDetailsResult
+        data object Expired : AddDetailsResult
         data class Success(
             val nickname: Nickname,
             val description: UserDescription,
             val interests: InterestList,
             val avatar: FileDescriptor?,
+            val expiration: Instant,
         ) : AddDetailsResult
     }
 
@@ -172,7 +172,11 @@ object FriendsService {
     ): AddDetailsResult {
         return suspendTransaction(context.database) t@{
             val entry = FriendTokensTable.select(token)
-                ?: return@t AddDetailsResult.NotFound
+                ?: return@t AddDetailsResult.Expired
+            val isTokenValid = context.clock.now() < entry.expiration
+            if (!isTokenValid) {
+                return@t AddDetailsResult.Expired
+            }
             val userEntry = UsersTable
                 .select(listOf(entry.ownerId))
                 .getValue(entry.ownerId)
@@ -185,6 +189,7 @@ object FriendsService {
                 description = userEntry.description,
                 avatar = userEntry.avatar,
                 interests = interests,
+                expiration = entry.expiration,
             )
         }
     }
