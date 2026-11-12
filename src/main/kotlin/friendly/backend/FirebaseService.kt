@@ -2,6 +2,7 @@ package friendly.backend
 
 import com.google.firebase.messaging.ApnsConfig
 import com.google.firebase.messaging.Aps
+import com.google.firebase.messaging.ApsAlert
 import com.google.firebase.messaging.FirebaseMessagingException
 import com.google.firebase.messaging.Message
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,11 @@ object FirebaseService {
                 ApnsConfig.builder()
                     .setAps(
                         Aps.builder()
+                            .setAlert(
+                                ApsAlert.builder()
+                                    .setLocalizationKey("PUSH_FALLBACK")
+                                    .build(),
+                            )
                             .setMutableContent(true)
                             .build(),
                     )
