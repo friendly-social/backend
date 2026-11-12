@@ -446,14 +446,20 @@ object CommunityService {
                 withDeleted = true,
             )
             val upstream = CommunityPostsPathTable.selectUpstream(postId = id)
-            if (replies.isEmpty()) {
+            val nullify = replies.isEmpty()
+            if (nullify) {
                 CommunityPostsTable.delete(id)
                 CommunityPostsPathTable.deletePostsById(id)
                 CommunityUnreadsTable.delete(id)
             } else {
                 CommunityPostsTable.updateToDeleted(id)
             }
-            ActivityService.onPostDeleted(context, id, upstream)
+            ActivityService.onPostDeleted(
+                context = context,
+                id = id,
+                upstream = upstream,
+                nullified = nullify,
+            )
             return Success
         }
 

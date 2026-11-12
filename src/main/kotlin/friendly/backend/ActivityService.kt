@@ -154,7 +154,7 @@ object ActivityService {
             }
         }
         val posts = CommunityService
-            .detailsFromIds(context, fromId, postIds, withDeleted = false)
+            .detailsFromIds(context, fromId, postIds, withDeleted = true)
             .iterator()
         val users = UsersService.details(context, fromId, userIds.distinct())
         return entries.map { entry ->
@@ -169,8 +169,12 @@ object ActivityService {
                     id = entry.id,
                     instant = entry.instant,
                     isRead = entry.isRead,
-                    post = posts.next() as Plain,
-                    commonDenominator = posts.next() as Plain,
+                    post = posts.next() ?: error(
+                        "Post can only be null if they have no replies",
+                    ),
+                    commonDenominator = posts.next() ?: error(
+                        "Post can only be null if they have no replies",
+                    ),
                 )
                 is NewRequest -> ActivityDetails.NewRequest(
                     id = entry.id,
@@ -385,11 +389,18 @@ object ActivityService {
         context: AppContext,
         id: CommunityPostId,
         upstream: List<CommunityPostId>,
+        nullified: Boolean,
     ) {
         suspendTransaction(context.database) t@{
             ActivityTable.deleteReplies(id)
-            ActivityTable.deleteIndirectReplies(id)
+            if (nullified) {
+                // Should be kept in history if post itself is visible
+                ActivityTable.deleteIndirectReplies(id)
+            }
             val rootId = upstream.firstOrNull() ?: return@t
+            // Unreads were cleaned onPostDeleted, but there some
+            // indirect_replies activity entries left that now point to posts
+            // that don't exist anymore.
             ActivityTable.deleteIndirectRepliesWithoutUnreads(rootId)
         }
     }

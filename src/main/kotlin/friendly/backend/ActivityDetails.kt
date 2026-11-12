@@ -28,7 +28,7 @@ sealed interface ActivityDetails {
         override val id: ActivityId,
         override val instant: Instant,
         override val isRead: Boolean,
-        val post: CommunityPostDetails.Plain,
+        val post: CommunityPostDetails,
         val commonDenominator: CommunityPostDetails,
     ) : ActivityDetails {
         override fun serializable(): ActivityDetailsSerializable =
