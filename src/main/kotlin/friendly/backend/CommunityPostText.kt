@@ -9,7 +9,7 @@ data class CommunityPostText private constructor(val string: String) {
         CommunityPostTextSerializable(string)
 
     companion object {
-        val MaxLength: Int = 4096
+        val MaxLength: Int = 10_240
 
         fun orThrow(string: String): CommunityPostText {
             require(string.length <= MaxLength) {

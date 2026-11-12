@@ -5,7 +5,7 @@ data class UserDescription private constructor(val string: String) {
         UserDescriptionSerializable(string)
 
     companion object {
-        val MaxLength: Int = 1_024
+        val MaxLength: Int = 10_240
 
         fun orThrow(string: String): UserDescription {
             require(string.length <= MaxLength)
