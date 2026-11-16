@@ -66,66 +66,161 @@ object CommunityService {
         authorization: Authorization,
         text: CommunityPostText,
         replyTo: CommunityPostDescriptor?,
+        continueThread: Boolean,
     ): PostResult {
+        if (continueThread) {
+            require(replyTo != null)
+        }
         AuthService
             .authorize(context, authorization)
             .onFailure { return Unauthorized }
-        val replyToEntry = if (replyTo != null) {
-            suspendTransaction(context.database) {
-                CommunityPostsTable
-                    .selectByDescriptor(listOf(replyTo), withDeleted = true)
-                    .first()
-            } ?: return NotFound
-        } else {
-            null
+        val replyToNotFound = suspendTransaction(context.database) t@{
+            if (replyTo == null) return@t false
+            CommunityPostsTable
+                .selectByDescriptor(listOf(replyTo), withDeleted = true)
+                .first() == null
         }
-        val now = context.clock.now()
-        val accessHash = CommunityPostAccessHash.random(context.random)
-        val id = suspendTransaction(context.database) {
-            val path = if (replyTo != null) {
-                CommunityPostsPathTable.selectUpstream(
-                    postId = replyTo.id,
-                ).apply {
-                    if (size >= MAX_DEPTH) {
-                        return@suspendTransaction null
-                    }
+        if (replyToNotFound) return NotFound
+        return suspendTransaction(context.database) {
+            adjustReplyToThread(
+                context = context,
+                continueThread = continueThread,
+                replyTo = replyTo?.id,
+            ) t@{ replyTo ->
+                val replyToEntry = if (replyTo != null) {
+                    CommunityPostsTable
+                        .selectById(listOf(replyTo), withDeleted = true)
+                        .first()
+                        ?: error(
+                            "Inconsistency: replyTo is found in " +
+                                "CommunityPostsPathTable, but not found " +
+                                "in CommunityPostsTable",
+                        )
+                } else {
+                    null
                 }
-            } else {
-                null
+                val now = context.clock.now()
+                val accessHash = CommunityPostAccessHash.random(context.random)
+                val path = if (replyTo != null) {
+                    CommunityPostsPathTable.selectUpstream(
+                        postId = replyTo,
+                    ).apply {
+                        if (size >= MAX_DEPTH) {
+                            return@t PostResult.NotFound
+                        }
+                    }
+                } else {
+                    null
+                }
+                val id = CommunityPostsTable.insert(
+                    accessHash = accessHash,
+                    ownerId = authorization.id,
+                    text = text,
+                    instant = now,
+                    replyTo = replyTo,
+                )
+                if (path != null && replyTo != null) {
+                    CommunityPostsPathTable.insert(id, path + replyTo)
+                }
+                onPostCreated(
+                    context = context,
+                    fromId = authorization.id,
+                    replyTo = replyTo,
+                    id = id,
+                )
+                ActivityService.onPostCreated(
+                    context = context,
+                    fromId = authorization.id,
+                    replyTo = replyToEntry,
+                    id = id,
+                    text = text,
+                )
+                NotificationsService.onPostCreated(
+                    context = context,
+                    fromId = authorization.id,
+                    replyTo = replyToEntry,
+                    id = id,
+                )
+                val descriptor = CommunityPostDescriptor(id, accessHash)
+                PostResult.Success(descriptor)
             }
-            val id = CommunityPostsTable.insert(
-                accessHash = accessHash,
-                ownerId = authorization.id,
-                text = text,
-                instant = now,
-                replyTo = replyTo?.id,
-            )
-            if (path != null && replyTo != null) {
-                CommunityPostsPathTable.insert(id, path + replyTo.id)
+        }
+    }
+
+    /**
+     * Runs a serializable transaction, if something that was read was changed,
+     * aborts and tries again.
+     */
+    suspend inline fun <T> adjustReplyToThread(
+        context: AppContext,
+        continueThread: Boolean,
+        replyTo: CommunityPostId?,
+        crossinline block: suspend (CommunityPostId?) -> T,
+    ): T {
+        if (replyTo == null) {
+            return block(null)
+        }
+        if (!continueThread) {
+            return block(replyTo)
+        }
+        // double-check lock
+        if (checkThread(replyTo) is Broken) {
+            return block(replyTo)
+        }
+        var isBroken: Boolean = false
+        var result: T? = null
+        suspendTransaction(
+            db = context.database,
+            transactionIsolation = SERIALIZABLE,
+        ) t@{
+            maxAttempts = Int.MAX_VALUE
+
+            isBroken = false
+            result = null
+
+            val thread = checkThread(replyTo)
+            when (thread) {
+                is Broken -> {
+                    isBroken = true
+                }
+                is Ok -> {
+                    result = block(thread.replyTo)
+                }
             }
-            onPostCreated(
-                context = context,
-                fromId = authorization.id,
-                replyTo = replyTo?.id,
-                id = id,
-            )
-            ActivityService.onPostCreated(
-                context = context,
-                fromId = authorization.id,
-                replyTo = replyToEntry,
-                id = id,
-                text = text,
-            )
-            NotificationsService.onPostCreated(
-                context = context,
-                fromId = authorization.id,
-                replyTo = replyToEntry,
-                id = id,
-            )
-            id
-        } ?: return PostResult.NotFound
-        val descriptor = CommunityPostDescriptor(id, accessHash)
-        return PostResult.Success(descriptor)
+        }
+        // if broken, no need for serializable transation isolation
+        if (isBroken) {
+            return block(replyTo)
+        }
+        @Suppress("UNCHECKED_CAST")
+        return result as T
+    }
+
+    sealed interface CheckThreadResult {
+        data object Broken : CheckThreadResult
+        data class Ok(val replyTo: CommunityPostId) : CheckThreadResult
+    }
+
+    suspend fun checkThread(replyTo: CommunityPostId): CheckThreadResult {
+        val limit = 100
+        val replies = CommunityPostsPathTable.selectReplies(
+            postIds = listOf(replyTo),
+            maxDepth = Long.MAX_VALUE,
+            limit = limit + 1,
+        )
+        if (replies.size > limit) {
+            return CheckThreadResult.Broken
+        }
+        val sorted = replies.sortedBy { entry -> entry.postDepth }
+        var lastDepth: Long? = null
+        for (post in sorted) {
+            if (lastDepth == post.postDepth) {
+                return CheckThreadResult.Broken
+            }
+            lastDepth = post.postDepth
+        }
+        val lastReplyTo = sorted.lastOrNull()?.postId ?: replyTo
+        return CheckThreadResult.Ok(lastReplyTo)
     }
 
     suspend fun onPostCreated(

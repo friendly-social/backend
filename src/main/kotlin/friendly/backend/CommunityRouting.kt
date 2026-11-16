@@ -6,6 +6,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 
 object CommunityRouting {
     @Serializable
@@ -84,17 +85,35 @@ object CommunityRouting {
     data class PostBody(
         val text: CommunityPostTextSerializable,
         val replyTo: CommunityPostDescriptorSerializable? = null,
+        /**
+         * True when client thinks it is about to continue thread.
+         *
+         * Client may have stale data, and thread could have gone further
+         * without it received updates. In that case, if client says it wants to
+         * continue thread, it will be continued as if client saw these updates
+         * and appended their message as last.
+         *
+         * If thread was split into multiple threads, message is sent as a
+         * direct ancestor of [replyTo].
+         */
+        val continueThread: Boolean = false,
     )
 
     fun post(context: AppContext) {
         context.routing.post("/community") {
             val authorization = call.authorization()
             val body = call.receive<PostBody>()
+            if (body.continueThread && body.replyTo == null) {
+                throw SerializationException(
+                    "Can't continue thread if not replying",
+                )
+            }
             val result = CommunityService.post(
                 context = context,
                 authorization = authorization,
                 text = body.text.typed(),
                 replyTo = body.replyTo?.typed(),
+                continueThread = body.continueThread,
             )
             when (result) {
                 is Unauthorized -> call.respond(HttpStatusCode.Unauthorized)
