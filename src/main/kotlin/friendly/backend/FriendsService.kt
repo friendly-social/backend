@@ -309,7 +309,7 @@ object FriendsService {
     ): UserDetails? {
         val user = UsersService
             .details(context, authorization.id, listOf(id))
-            .values.single()
+            .values.singleOrNull()
             ?: return null
         if (accessHash != user.accessHash) {
             return null

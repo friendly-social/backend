@@ -14,7 +14,6 @@ kotlin {
         optIn.add("kotlinx.coroutines.ExperimentalCoroutinesApi")
         freeCompilerArgs.add("-Xconsistent-data-class-copy-visibility")
         freeCompilerArgs.add("-Xcontext-sensitive-resolution")
-        freeCompilerArgs.add("-Xdata-flow-based-exhaustiveness")
     }
 }
 

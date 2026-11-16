@@ -111,7 +111,7 @@ object UsersService {
         context = context,
         fromId = fromId,
         ids = listOf(descriptor.id),
-    ).values.first()?.takeIf { user ->
+    ).values.firstOrNull()?.takeIf { user ->
         user.accessHash == descriptor.accessHash
     }
 
@@ -156,7 +156,7 @@ object UsersService {
             val email = selectEmailIfOwner(fromId, ids)
             val friendship = friendship(fromId, ids).iterator()
             ids.mapNotNull { id ->
-                val entry = entries.getValue(id)
+                val entry = entries[id]
                 val interests = interests.next()
                 val friendship = friendship.next()
                 entry ?: return@mapNotNull null

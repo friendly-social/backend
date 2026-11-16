@@ -10,6 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - name: Setup Java
+      uses: actions/setup-java@v5
+      with:
+          distribution: 'temurin'
+          java-version: 17
     - name: Gradle Cache Setup
       uses: gradle/actions/setup-gradle@v3
     - name: Gradle Dist Zip
