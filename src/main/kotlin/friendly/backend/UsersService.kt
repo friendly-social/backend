@@ -238,8 +238,8 @@ object UsersService {
                 avatar = avatar,
                 socialLink = socialLink,
             )
-            InterestsTable.delete(authorization.id)
             if (interests != null) {
+                InterestsTable.delete(authorization.id)
                 InterestsTable.insert(authorization.id, interests.value)
             }
             Success
