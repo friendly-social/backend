@@ -17,11 +17,11 @@ private val logger = LoggerFactory.getLogger("NotificationsService")
  */
 object NotificationsService {
 
-    suspend fun schedule(context: AppContext, payload: NotificationPayload) {
-        val notification = suspendTransaction(context.database) {
-            NotificationsTable.insert(payload)
-        }
-        execute(context, notification)
+    suspend fun schedule(
+        context: AppContext,
+        payload: NotificationPayload,
+    ): NotificationEntry = suspendTransaction(context.database) {
+        NotificationsTable.insert(payload)
     }
 
     fun restoreScheduled(context: AppContext) {
@@ -32,6 +32,15 @@ object NotificationsService {
             for (notification in pending) {
                 execute(context, notification)
             }
+        }
+    }
+
+    fun executeEach(
+        context: AppContext,
+        notifications: List<NotificationEntry>,
+    ) {
+        for (notification in notifications) {
+            execute(context, notification)
         }
     }
 
@@ -143,18 +152,21 @@ object NotificationsService {
         fromId: UserId,
         replyTo: CommunityPostsTable.Entry?,
         id: CommunityPostId,
-    ) {
-        val replyOwnerId = replyTo?.ownerId ?: return
+    ): List<NotificationEntry> {
+        val replyOwnerId = replyTo?.ownerId ?: return emptyList()
         val isNotSelfReply = replyOwnerId != fromId
         if (isNotSelfReply) {
-            schedule(
-                context = context,
-                payload = NotificationPayload.NewReply(
-                    toId = replyOwnerId,
-                    postId = id,
+            return listOf(
+                schedule(
+                    context = context,
+                    payload = NotificationPayload.NewReply(
+                        toId = replyOwnerId,
+                        postId = id,
+                    ),
                 ),
             )
         }
+        return emptyList()
     }
 
     suspend fun onPostDeleted(context: AppContext, postId: CommunityPostId) {

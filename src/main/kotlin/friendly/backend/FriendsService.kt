@@ -239,7 +239,9 @@ object FriendsService {
                         toId = userId,
                         isMutual = isMutual,
                     )
-                    NotificationsService.schedule(context, notification)
+                    val scheduled = NotificationsService
+                        .schedule(context, notification)
+                    NotificationsService.execute(context, scheduled)
                 }
             }
             FriendsTable.upsert(

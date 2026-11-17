@@ -81,12 +81,14 @@ object CommunityService {
                 .first() == null
         }
         if (replyToNotFound) return NotFound
-        return suspendTransaction(context.database) {
-            adjustReplyToThread(
+        var notifications: List<NotificationEntry> = emptyList()
+        val transaction = suspendTransaction(context.database) {
+            adjustReplyToThreadRestartable(
                 context = context,
                 continueThread = continueThread,
                 replyTo = replyTo?.id,
             ) t@{ replyTo ->
+                notifications = emptyList()
                 val replyToEntry = if (replyTo != null) {
                     CommunityPostsTable
                         .selectById(listOf(replyTo), withDeleted = true)
@@ -135,7 +137,7 @@ object CommunityService {
                     id = id,
                     text = text,
                 )
-                NotificationsService.onPostCreated(
+                notifications = NotificationsService.onPostCreated(
                     context = context,
                     fromId = authorization.id,
                     replyTo = replyToEntry,
@@ -145,13 +147,15 @@ object CommunityService {
                 PostResult.Success(descriptor)
             }
         }
+        NotificationsService.executeEach(context, notifications)
+        return transaction
     }
 
     /**
      * Runs a serializable transaction, if something that was read was changed,
      * aborts and tries again.
      */
-    suspend inline fun <T> adjustReplyToThread(
+    suspend inline fun <T> adjustReplyToThreadRestartable(
         context: AppContext,
         continueThread: Boolean,
         replyTo: CommunityPostId?,
